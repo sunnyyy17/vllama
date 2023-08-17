@@ -3,11 +3,11 @@ model:
   model_type: pretrain_vicuna
   freeze_vit: True
   freeze_qformer: True
-  low_resource: True
+
 
 datasets:
-  ct:
-    vis_processor: 
+  laion:
+    vis_processor:
       train:
         name: "blip2_image_train"
         image_size: 224
@@ -15,6 +15,15 @@ datasets:
       train:
         name: "blip_caption"
     sample_ratio: 115
+  cc_sbu:
+    vis_processor:
+        train:
+          name: "blip2_image_train"
+          image_size: 224
+    text_processor:
+        train:
+          name: "blip_caption"
+    sample_ratio: 14
 
 run:
   task: image_text_pretrain
@@ -25,21 +34,22 @@ run:
   warmup_lr: 1e-6
 
   weight_decay: 0.05
-  max_epoch: 100
-  batch_size_train: 1
-  batch_size_eval: 1
-  num_workers: 16
+  max_epoch: 4
+  batch_size_train: 16
+  batch_size_eval: 16
+  num_workers: 4
   warmup_steps: 5000
   iters_per_epoch: 5000
-  
+
   seed: 42
   output_dir: "output/minigpt4_stage1_pretrain"
-  
+
   amp: True
   resume_ckpt_path: null
 
   evaluate: False 
-  train_splits: ["train", "valid", "test"]
+  train_splits: ["train"]
+
   device: "cuda"
   world_size: 1
   dist_url: "env://"

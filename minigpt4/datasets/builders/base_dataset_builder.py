@@ -45,17 +45,17 @@ class BaseDatasetBuilder:
     def build_datasets(self):
         # download, split, etc...
         # only called on 1 GPU/TPU in distributed
-
+        '''
         if is_main_process():
             self._download_data()
-
+        '''
         if is_dist_avail_and_initialized():
             dist.barrier()
 
         # at this point, all the annotations and image/videos should be all downloaded to the specified locations.
         logging.info("Building datasets...")
         datasets = self.build()  # dataset['train'/'val'/'test']
-
+        
         return datasets
 
     def build_processors(self):
@@ -83,7 +83,7 @@ class BaseDatasetBuilder:
             if cfg is not None
             else None
         )
-
+    
     @classmethod
     def default_config_path(cls, type="default"):
         return utils.get_abs_path(cls.DATASET_CONFIG_DICT[type])
@@ -129,7 +129,7 @@ class BaseDatasetBuilder:
                 dirname = os.path.dirname(storage_path)
                 if not os.path.exists(dirname):
                     os.makedirs(dirname)
-
+                
                 if os.path.isfile(url_or_filename):
                     src, dst = url_or_filename, storage_path
                     if not os.path.exists(dst):

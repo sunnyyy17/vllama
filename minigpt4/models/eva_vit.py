@@ -72,7 +72,7 @@ class Attention(nn.Module):
             head_dim = attn_head_dim
         all_head_dim = head_dim * self.num_heads
         self.scale = qk_scale or head_dim ** -0.5
-
+        
         self.qkv = nn.Linear(dim, all_head_dim * 3, bias=False)
         if qkv_bias:
             self.q_bias = nn.Parameter(torch.zeros(all_head_dim))
@@ -337,6 +337,7 @@ class VisionTransformer(nn.Module):
                 x = checkpoint.checkpoint(blk, x, rel_pos_bias)
             else:
                 x = blk(x, rel_pos_bias)
+        print('x.shape, image_embeds.shape', x.shape)
         return x
 #         x = self.norm(x)
 
@@ -360,7 +361,7 @@ class VisionTransformer(nn.Module):
         if self.pos_embed is not None:
             x = x + self.pos_embed
         x = self.pos_drop(x)
-
+        
         features = []
         rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
         for blk in self.blocks:
@@ -380,6 +381,7 @@ def interpolate_pos_embed(model, checkpoint_model):
         orig_size = int((pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
         # height (== width) for the new position embedding
         new_size = int(num_patches ** 0.5)
+        
         # class_token and dist_token are kept unchanged
         if orig_size != new_size:
             print("Position interpolate from %dx%d to %dx%d" % (orig_size, orig_size, new_size, new_size))
@@ -425,7 +427,7 @@ def create_eva_vit_g(img_size=224,drop_path_rate=0.4,use_checkpoint=False,precis
         drop_path_rate=drop_path_rate,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         use_checkpoint=use_checkpoint,
-    )  
+    )   
     url = "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/eva_vit_g.pth"
     cached_file = download_cached_file(
         url, check_hash=False, progress=True
@@ -437,6 +439,6 @@ def create_eva_vit_g(img_size=224,drop_path_rate=0.4,use_checkpoint=False,precis
 #     print(incompatible_keys)
     
     if precision == "fp16":
-#         model.to("cuda") 
+#         model.to("cuda") sssss
         convert_weights_to_fp16(model)
     return model

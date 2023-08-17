@@ -15,6 +15,10 @@ import torch.nn as nn
 import torch.distributed as dist
 import torch.nn.functional as F
 
+from minigpt4.models.model import CLIP
+import minigpt4.models.clip as clip
+
+
 import minigpt4.common.dist_utils as dist_utils
 from minigpt4.common.dist_utils import download_cached_file
 from minigpt4.common.utils import is_url
@@ -36,7 +40,7 @@ class Blip2Base(BaseModel):
         # if on cpu, don't use autocast
         # if on gpu, use autocast with dtype if provided, otherwise use torch.float16
         enable_autocast = self.device != torch.device("cpu")
-
+        
         if enable_autocast:
             return torch.cuda.amp.autocast(dtype=dtype)
         else:
@@ -61,14 +65,49 @@ class Blip2Base(BaseModel):
     def init_vision_encoder(
         cls, model_name, img_size, drop_path_rate, use_grad_checkpoint, precision
     ):
+        
+        ###FOR BLIP-2
         assert model_name == "eva_clip_g", "vit model must be eva_clip_g for current version of MiniGPT-4"
         visual_encoder = create_eva_vit_g(
             img_size, drop_path_rate, use_grad_checkpoint, precision
         )
-
+            
         ln_vision = LayerNorm(visual_encoder.num_features)
         return visual_encoder, ln_vision
 
+    def init_CheXzero_encoder(cls, model_path):  
+        
+        params = {
+        'embed_dim':512,
+        'image_resolution': 224,
+        'vision_layers': 12,
+        'vision_width': 768,
+        'vision_patch_size': 32,
+        'context_length': 77,
+        'vocab_size': 49408,
+        'transformer_width': 512,
+        'transformer_heads': 8,
+        'transformer_layers': 12
+        }
+        ###FOR CheXzero
+        vision_encoder = CLIP(**params)
+        
+        print("Loaded in clip model.")
+        '''
+        if vit_pretrained: 
+            # load clip pre-trained model
+            vision_encoder, _ = clip.load(model_name, device=device, jit=False)
+            print("Loaded in pretrained model.")
+        else:
+            vision_encoder = CLIP(**params)
+            print("Loaded in clip model.")
+        '''
+        # if a model_path is provided, load in weights to backbone
+        if model_path != None: 
+            vision_encoder.load_state_dict(torch.load(model_path)) #, map_location=device))
+
+        return vision_encoder
+    
     def load_from_pretrained(self, url_or_filename):
         if is_url(url_or_filename):
             cached_file = download_cached_file(
@@ -79,9 +118,8 @@ class Blip2Base(BaseModel):
             checkpoint = torch.load(url_or_filename, map_location="cpu")
         else:
             raise RuntimeError("checkpoint url or path is invalid")
-
+        
         state_dict = checkpoint["model"]
-
         msg = self.load_state_dict(state_dict, strict=False)
 
         # logging.info("Missing keys {}".format(msg.missing_keys))

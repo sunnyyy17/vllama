@@ -64,5 +64,5 @@ class ConcatDataset(ConcatDataset):
         samples_shared_keys = []
         for s in samples:
             samples_shared_keys.append({k: s[k] for k in s.keys() if k in shared_keys})
-
+        
         return self.datasets[0].collater(samples_shared_keys)

@@ -20,7 +20,7 @@ class MultiIterLoader:
         loaders (List[Loader]): List of Iterator loaders.
         ratios (List[float]): List of ratios to sample from each loader. If None, all loaders are sampled uniformly.
     """
-
+    
     def __init__(self, loaders, ratios=None):
         # assert all loaders has __next__ method
         for loader in loaders:
@@ -36,7 +36,7 @@ class MultiIterLoader:
 
         self.loaders = loaders
         self.ratios = ratios
-
+    
     def __next__(self):
         # random sample from each loader by ratio
         loader_idx = random.choices(range(len(self.loaders)), self.ratios, k=1)[0]

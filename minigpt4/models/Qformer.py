@@ -102,7 +102,7 @@ class BertEmbeddings(nn.Module):
                 embeddings = torch.cat((query_embeds, embeddings), dim=1)
         else:
             embeddings = query_embeds
-
+        
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
         return embeddings
@@ -1025,7 +1025,7 @@ class BertLMHeadModel(BertPreTrainedModel):
             If set to :obj:`True`, :obj:`past_key_values` key value states are returned and can be used to speed up
             decoding (see :obj:`past_key_values`).
         Returns:
-        Example::
+        Example:
             >>> from transformers import BertTokenizer, BertLMHeadModel, BertConfig
             >>> import torch
             >>> tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
