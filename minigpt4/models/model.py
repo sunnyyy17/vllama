@@ -254,7 +254,7 @@ class VisualTransformer(nn.Module):
         print('x after transformer', x.shape)
         x = x.permute(1, 0, 2)  # LND -> NLD
         print('x after transformer permute', x.shape)
-        x = self.ln_post(x[:, 0, :])
+        x = self.ln_post(x[:, 0, :]) #Return CLS_TOKEN return only
         '''
         if self.proj is not None:
             x = x @ self.proj

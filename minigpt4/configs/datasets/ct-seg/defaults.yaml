@@ -1,0 +1,9 @@
+datasets:
+  ct-seg:
+    data_type: images
+    build_info:
+      size: None
+      transform: None
+      img_path: /home/changsun/data/ct-for-detect-seg/ct.h5 
+      txt_path: /home/changsun/data/ct-for-detect-seg/ct_report.csv
+      

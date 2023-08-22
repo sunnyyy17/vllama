@@ -39,8 +39,8 @@ class MiniGPT4(Blip2Base):
         end_sym='\n',
         low_resource=True,  # use 8 bit and put vit in cpu
         device_8bit=0,  # the device of 8bit model should be set when loading and cannot be changed anymore.
-        vit_path = '/home/bispl/changsun/ '#'/scratch/slurm-user3/changsun/data/ct-for-detect-seg/checkpoint_15000.pt',
-    ): 
+        vit_path = '/home/changsun/data/ct-for-detect-seg/checkpoint_15000.pt' #'/scratch/slurm-user3/changsun/data/ct-for-detect-seg/checkpoint_15000.pt',
+    ):
         super().__init__()
 
         self.tokenizer = self.init_tokenizer()

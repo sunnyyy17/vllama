@@ -10,4 +10,3 @@ datasets:
       csv: /scratch/slurm-user3/changsun/csvs/folds_patients.csv
       z_length: 12
       storage: /scratch/slurm-user3/changsun/data/rsna-intracranial-hemorrhage-detection/selected_3d/train/
-      
