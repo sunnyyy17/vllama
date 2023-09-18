@@ -72,7 +72,7 @@ class MiniGPT4(Blip2Base):
             '''
             logging.info("freeze vision encoder")
         print('Loading VIT Done')
-        print('Loading Q-Former')
+        #print('Loading Q-Former')
         '''
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features
@@ -95,7 +95,7 @@ class MiniGPT4(Blip2Base):
             self.query_tokens.requires_grad = False
             logging.info("freeze Qformer")
         '''
-        print('Loading Q-Former Done')
+        #print('Loading Q-Former Done')
         
         print('Loading LLAMA')
         self.llama_tokenizer = LlamaTokenizer.from_pretrained(llama_model, use_fast=False)
@@ -115,11 +115,12 @@ class MiniGPT4(Blip2Base):
                 torch_dtype=torch.float16,
             )
         
-        
+        '''
         for name, param in self.llama_model.named_parameters():
             #param = param.type(torch.float64)
             #print('name:', name, 'param type', param.type)
             param.requires_grad = False
+        '''
         print('Loading LLAMA Done')
 
         ###TODO - FIX QFormer Alignment self.llama_proj
@@ -131,7 +132,7 @@ class MiniGPT4(Blip2Base):
         self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size)
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
-    
+
         if prompt_path:
             with open(prompt_path, 'r') as f:
                 raw_prompts = f.read().splitlines()
@@ -147,7 +148,7 @@ class MiniGPT4(Blip2Base):
         #self.ln_vision.float()
         self.visual_encoder.to("cpu")
         self.visual_encoder.float()
-    
+
     def encode_img(self, image):
         device = image.device
         if self.low_resource:
