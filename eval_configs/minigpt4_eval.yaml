@@ -10,7 +10,6 @@ model:
   prompt_template: '###Human: {} ###Assistant: '
   ckpt: '/home/changsun/minigpt4/checkpoints/CT-seg-finetune/checkpoint_10.pth' #'/path/to/pretrained/ckpt/'
 
-
 datasets:
   cc_sbu_align:
     vis_processor:

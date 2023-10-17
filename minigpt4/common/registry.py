@@ -193,7 +193,6 @@ class Registry:
             name: Key with which the path will be registered.
 
         Usage:
-
             from minigpt4.common.registry import registry
         """
         assert isinstance(path, str), "All path must be str."
@@ -239,7 +238,7 @@ class Registry:
     @classmethod
     def get_task_class(cls, name):
         return cls.mapping["task_name_mapping"].get(name, None)
-
+    
     @classmethod
     def get_processor_class(cls, name):
         return cls.mapping["processor_name_mapping"].get(name, None)
@@ -299,7 +298,7 @@ class Registry:
             value = value.get(subname, default)
             if value is default:
                 break
-
+        
         if (
             "writer" in cls.mapping["state"]
             and value == default
@@ -310,7 +309,7 @@ class Registry:
                 "of {}".format(original_name, default)
             )
         return value
-
+    
     @classmethod
     def unregister(cls, name):
         r"""Remove an item from registry with key 'name'
