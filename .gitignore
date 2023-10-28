@@ -5,3 +5,5 @@
 *.png
 *.jpeg
 *.txt
+/output
+/outputs
