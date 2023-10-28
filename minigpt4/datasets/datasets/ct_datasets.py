@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import kornia
 import re
 import warnings
-
+import h5py
 from torch.utils import data
 
 def pre_caption(caption, max_words):
@@ -226,7 +226,7 @@ class CTSegDataset(data.Dataset):
         data_cache_size: Number of HDF5 files that can be cached in the cache (default=3).
         transform: PyTorch transform to apply to every data instance (default=None).
     """
-    def __init__(self, img_path, txt_path, column='report', size=None, transform=None):
+    def __init__(self, img_path, txt_path, column='impression', size=None, transform=None):
         super().__init__()
         if size != None: 
             print(h5py.File(img_path, 'r').keys())

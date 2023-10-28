@@ -21,12 +21,12 @@ class CTSegBuilder(BaseDatasetBuilder):
         
         datasets = dict()
         split = "train"
-    
+        
         # create datasets
         # [NOTE] return inner_datasets (wds.DataPipeline)
         dataset_cls = self.train_dataset_cls
         datasets[split] = dataset_cls(img_path=build_info.img_path,
-        txt_path=build_info.txt_path , column='report', size=None, transform=None )
+        txt_path=build_info.txt_path , column='impression', size=None, transform=None )
 
         return datasets
 

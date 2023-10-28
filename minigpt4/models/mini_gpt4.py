@@ -9,6 +9,13 @@ from minigpt4.common.registry import registry
 from minigpt4.models.blip2 import Blip2Base, disabled_train
 from minigpt4.models.modeling_llama import LlamaForCausalLM
 from transformers import LlamaTokenizer
+import pdb
+
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    prepare_model_for_int8_training,
+)
 
 
 @registry.register_model("mini_gpt4")
@@ -16,7 +23,7 @@ class MiniGPT4(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.
     """
-
+    
     PRETRAINED_MODEL_CONFIG_DICT = {
         "pretrain_vicuna": "configs/models/minigpt4.yaml",
     }
@@ -27,7 +34,7 @@ class MiniGPT4(Blip2Base):
         q_former_model="https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth",
         img_size=224,
         drop_path_rate=0,
-        use_grad_checkpoint=False,
+        use_grad_checkpoint=True,
         vit_precision="fp16",
         freeze_vit=True,
         freeze_qformer=True,
@@ -35,11 +42,15 @@ class MiniGPT4(Blip2Base):
         llama_model="",
         prompt_path="",
         prompt_template="",
-        max_txt_len=32,
+        max_txt_len=64,
         end_sym='\n',
-        low_resource=True,  # use 8 bit and put vit in cpu
+        low_resource=False,  # use 8 bit and put vit in cpu =
         device_8bit=0,  # the device of 8bit model should be set when loading and cannot be changed anymore.
-        vit_path = '/home/changsun/data/ct-for-detect-seg/checkpoint_15000.pt' #'/scratch/slurm-user3/changsun/data/ct-for-detect-seg/checkpoint_15000.pt',
+        vit_path = '/scratch/slurm-user3/changsun/data/ct-for-detect-seg/checkpoint_15000.pt',
+        lora_r = 0, 
+        lora_target_modules=["q_proj","v_proj"],
+        lora_alpha = 16,
+        lora_dropout = 0.05
     ):
         super().__init__()
 
@@ -53,7 +64,7 @@ class MiniGPT4(Blip2Base):
         self.visual_encoder, self.ln_vision = self.init_vision_encoder(
             vit_model, img_size, drop_path_rate, use_grad_checkpoint, vit_precision
         )
-        '''
+        ''' 
         
         ###FOR CheXZero
         print("CHECK UPDATE")
@@ -71,8 +82,10 @@ class MiniGPT4(Blip2Base):
             self.ln_vision.train = disabled_train
             '''
             logging.info("freeze vision encoder")
+        
         print('Loading VIT Done')
         print('Loading Q-Former')
+        print('visual_encoder.num_features', self.visual_encoder.num_features)
         '''
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features
@@ -84,8 +97,10 @@ class MiniGPT4(Blip2Base):
         for layer in self.Qformer.bert.encoder.layer:
             layer.output = None
             layer.intermediate = None
+        self.load_from_pretrained(url_or_filename=q_former_model)
+
+        self.Qformer = self.Qformer.train()
         '''
-        #self.load_from_pretrained(url_or_filename=q_former_model)
         '''
         if freeze_qformer:
             for name, param in self.Qformer.named_parameters():
@@ -96,42 +111,79 @@ class MiniGPT4(Blip2Base):
             logging.info("freeze Qformer")
         '''
         print('Loading Q-Former Done')
-        
+    
         print('Loading LLAMA')
+        
         self.llama_tokenizer = LlamaTokenizer.from_pretrained(llama_model, use_fast=False)
         self.llama_tokenizer.pad_token = self.llama_tokenizer.eos_token
+        #self.llama_tokenizer = transformers.AutoTokenizer.from_pretrained(llama_model, use_fast=False)
+        #self.llama_tokenizer.pad_token = self.llama_tokenizer.eos_token
         
         if self.low_resource:
             print("Low_resource activated")
+
             self.llama_model = LlamaForCausalLM.from_pretrained(
                 llama_model,
-                torch_dtype=torch.float16,
                 load_in_8bit=True,
+                torch_dtype=torch.float16,
                 device_map={'': device_8bit}
             )
+            
+            #self.llama_model = transformers.AutoModelForCausalLM.from_pretrained(llama_model, torch_dtype=torch.float16, load_in_8bit=True, )
         else:
             self.llama_model = LlamaForCausalLM.from_pretrained(
                 llama_model,
-                torch_dtype=torch.float16,
+                torch_dtype=torch.bfloat16
             )
+        self.llama_model.model.embed_tokens.weight.requires_grad = False
+        self.llama_model_device = self.llama_model.device
+
+        if lora_r > 0:
+            self.llama_model = prepare_model_for_int8_training(self.llama_model)
+            loraconfig = LoraConfig(
+                r=lora_r,
+                bias="none",
+                task_type="CAUSAL_LM",
+                target_modules=lora_target_modules,
+                lora_alpha=lora_alpha,
+                lora_dropout=lora_dropout,
+            )
+            self.llama_model = get_peft_model(self.llama_model, loraconfig)
+
+            self.llama_model.print_trainable_parameters()
+        
+        else:
+            for name, param in self.llama_model.named_parameters():
+                param.requires_grad = False
+            print('LLaMA FROZEN')
         
         
+        print('Loading LLAMA Done')
+        '''Error: Int8 cannot be trained
         for name, param in self.llama_model.named_parameters():
+            param.requires  _grad = True
+            param.register_hook(lambda grad, name=name: print(f"Gradient for {name}: {grad}"))
+        '''
+        ''' Error: 
             #param = param.type(torch.float64)
             #print('name:', name, 'param type', param.type)
             param.requires_grad = False
-        print('Loading LLAMA Done')
-
+        '''
+        
         ###TODO - FIX QFormer Alignment self.llama_proj
         '''
         self.llama_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.llama_model.config.hidden_size
         )
         '''
-        self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size)
+        #print('1-0', self.llama_model_device)
+        ###Dimension Matching? Distribution Matching? ###REFER to Cross-Modal Finetuning
+        #print('config.hidden_size', self.llama_model.config.hidden_size)
+        self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        #print('get device', self.llama_proj_chz.device)
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
-    
+        
         if prompt_path:
             with open(prompt_path, 'r') as f:
                 raw_prompts = f.read().splitlines()
@@ -149,12 +201,14 @@ class MiniGPT4(Blip2Base):
         self.visual_encoder.float()
     
     def encode_img(self, image):
-        device = image.device
+        device = self.llama_model_device
+        #print('Device', device)
+        '''
         if self.low_resource:
             self.vit_to_cpu()
             image = image.to("cpu")
         '''
-        
+        '''
         with self.maybe_autocast():
             #image_embeds = self.ln_vision(self.visual_encoder(image)).to(device)
             image_embeds = self.visual_encoder(image).to(device)
@@ -170,6 +224,7 @@ class MiniGPT4(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
+        
             #print("query_output.shape", query_output.shape)
             print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
             
@@ -177,17 +232,19 @@ class MiniGPT4(Blip2Base):
             print("inputs_llama.shape", inputs_llama.shape)
             atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
         '''
-        with self.maybe_autocast():
-            image_embeds = self.visual_encoder(image).to(device)
-            print("image_embeds.shape", image_embeds.shape)
-            image_cls_tokens = image_embeds #image_cls_tokens = image_embeds[:,-1,:]
-            inputs_llama = self.llama_proj_chz(image_cls_tokens)
-            print("inputs_llama.shape", inputs_llama.shape)
-            atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
-            inputs_llama = inputs_llama.unsqueeze(dim=1)
-            atts_llama = atts_llama.unsqueeze(dim=1)
+
+        #with self.maybe_autocast():
+        print('image.shape', image.shape)
+        image_embeds = self.visual_encoder(image).to(device)
+        image_cls_tokens = (image_embeds-image_embeds.min())/(image_embeds.max()-image_embeds.min()) #image_cls_tokens = image_embeds[:,-1,:]
+        print('image_cls_tokens.shape', image_cls_tokens.shape)
+        inputs_llama = self.llama_proj_chz(image_cls_tokens).to(device)
+        atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(device)
+        inputs_llama = inputs_llama.unsqueeze(dim=1)
+        atts_llama = atts_llama.unsqueeze(dim=1)
+
         return inputs_llama, atts_llama
-    
+        
     def prompt_wrap(self, img_embeds, atts_img, prompt):
         if prompt:
             batch_size = img_embeds.shape[0]
@@ -208,12 +265,15 @@ class MiniGPT4(Blip2Base):
         #image = samples["image"]
         #image = samples["image"]
         ###FOR CT
-        #print(samples[0], samples[1])
+        #print(samples[0].shape, samples[1])
         image = samples[0]
         text = samples[1]
-        bs, ds, c, h, w = image.size()
+        #bs, ds, c, h, w = image.size()
+        bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
+        
         img_embeds, atts_img = self.encode_img(image)
+        atts_img = atts_img.to(image.device)
         if hasattr(samples, 'question_split'):  # VQA dataset
             print('VQA Batch')
             vqa_prompt = '###Human: <Img><ImageHere></Img> '
@@ -221,12 +281,12 @@ class MiniGPT4(Blip2Base):
         elif self.prompt_list:
             prompt = random.choice(self.prompt_list)
             img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, prompt)
+        
 
         self.llama_tokenizer.padding_side = "right"
-        
+
         #text = [t + self.end_sym for t in samples["text_input"]]
         text = [t + self.end_sym for t in samples[1]]
-        
         to_regress_tokens = self.llama_tokenizer(
             text,
             return_tensors="pt",
@@ -239,10 +299,11 @@ class MiniGPT4(Blip2Base):
         targets_pre = to_regress_tokens.input_ids.masked_fill(
             to_regress_tokens.input_ids == self.llama_tokenizer.pad_token_id, -100
         )
+
         #print('repeat size', atts_img.shape[0]//targets_pre.shape[0])
         targets = targets_pre.repeat(atts_img.shape[0]//targets_pre.shape[0], 1)
         #print('targets new', targets.size())
-        print('atts_img shape', atts_img.shape)
+        #print('atts_img shape', atts_img.shape)
         empty_targets = (
             torch.ones([atts_img.shape[0], atts_img.shape[1]+1],
                        dtype=torch.long).to(image.device).fill_(-100)  # plus one for bos
@@ -259,7 +320,7 @@ class MiniGPT4(Blip2Base):
                          device=to_regress_tokens.input_ids.device) * self.llama_tokenizer.bos_token_id
         bos_embeds = self.llama_model.model.embed_tokens(bos)
         atts_bos = atts_img[:, :1]
-
+        
         to_regress_embeds = self.llama_model.model.embed_tokens(to_regress_tokens.input_ids)
         #print(to_regress_embeds.shape)
         #print(img_embeds.shape[0])
@@ -268,23 +329,71 @@ class MiniGPT4(Blip2Base):
         #print('repeat size', img_embeds.shape[0]//to_regress_embeds.shape[0])
         to_regress_embeds = to_regress_embeds.repeat(img_embeds.shape[0]//to_regress_embeds.shape[0], 1, 1)
         #
-        print('bos_embeds.shape', bos_embeds.shape)
-        print('to_regress shape', to_regress_embeds.shape)
+        #print('bos_embeds.shape', bos_embeds.shape)
+        #print('to_regress shape', to_regress_embeds.shape)
+        #print('Text', text)
+        #print('sample[1]', samples[1])
+        #print('to_regress_embeds shape', to_regress_embeds.shape)
+        #print('to_regress_tokens shape', to_regress_tokens.input_ids.shape)
+        nan_indices = torch.isnan(to_regress_embeds).nonzero(as_tuple=True)
+        #print('nan_indices', nan_indices)
+        #print('nan_indices.shape', nan_indices.shape)
+        #print('to_regress_token.input_ids', to_regress_tokens.input_ids)
+        #print('length of to_regress_tokens.input_ids', len(to_regress_tokens.input_ids))
+        list_nan_indices = list(set(nan_indices[0]))
+        #print('list_nan_indices', list_nan_indices)
+        tokens_that_nan = to_regress_tokens.input_ids[list_nan_indices]
+        #print('length of nan_indices[0]', len(nan_indices[0]))
+        #print('length of nan_indices[1]', len(nan_indices[1]))
+        #print('length of nan_indices[2]', len(nan_indices[2]))
+
+        #print('lenght of tokens_that_nan', len(tokens_that_nan))
+        #print('token ids that yield NAN', tokens_that_nan)
+        #print('is img_token nan', img_embeds.isnan())
+        #print('img_token.shape', img_embeds.shape)
+        #print('img_embeds.dtype', img_embeds.dtype)
+        #img_embeds = img_embeds.to(torch.float16)
+        
+        img_embeds = img_embeds / 10
         inputs_embeds = torch.cat([bos_embeds, img_embeds, to_regress_embeds], dim=1)
+        #inputs_embeds = torch.cat([bos_embeds, img_embeds], dim=1)
+        #inputs_embeds = (inputs_embeds - inputs_embeds.min()) / (inputs_embeds.max()-inputs_embeds.min())
+        #print('input_embeds.dtype', inputs_embeds.dtype)
+        #print('img max, min', inputs_embeds.max(), inputs_embeds.min())
+        #print('regress_, ', to_regress_embeds.max(), to_regress_embeds.min())
+        #inputs_embeds = torch.cat([bos_embeds, to_regress_embeds, to_regress_embeds], dim=1)
         #print('to_regress', to_regress_tokens.attention_mask.shape)
+        
         to_regress_tokens.attention_mask = to_regress_tokens.attention_mask.repeat(atts_img.shape[0]//to_regress_tokens.attention_mask.shape[0], 1)
         #print('atts_bos, atts_img', atts_bos, atts_img)
+        #print(atts_bos.get_device(), atts_img.get_device(), to_regress_tokens.attention_mask.get_device())
         attention_mask = torch.cat([atts_bos, atts_img, to_regress_tokens.attention_mask], dim=1)
+        #attention_mask = torch.cat([atts_bos, to_regress_tokens.attention_mask, to_regress_tokens.attention_mask], dim=1)
         #print('attention mask', attention_mask.shape)
-        with self.maybe_autocast():
+        #print('attention mask show', attention_mask)
+        #file_name = 
+        #torch.save()
+        #if not os.exists(dir_name):
+            #os.makedir(dir_name)
+        
+        #file_name = dir_name + ''
+        #torch.save()
+        #print('input_embeds.shape', inputs_embeds.shape)
+        #print('targets.shape', targets.shape)
+        #print(img_embeds)
+        #print(to_regress_embeds)
+        #print(targets)
+        #with self.maybe_autocast():
+        with torch.autograd.detect_anomaly():
             outputs = self.llama_model(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
                 return_dict=True,
                 labels=targets,
             )
-        loss = outputs.loss
-        
+
+            loss = outputs.loss
+    
         return {"loss": loss}
     
     @classmethod
@@ -294,20 +403,24 @@ class MiniGPT4(Blip2Base):
         img_size = cfg.get("image_size")
         num_query_token = cfg.get("num_query_token")
         llama_model = cfg.get("llama_model")
-        
         drop_path_rate = cfg.get("drop_path_rate", 0)
-        use_grad_checkpoint = cfg.get("use_grad_checkpoint", False)
+        use_grad_checkpoint = cfg.get("use_grad_checkpoint", True)
         vit_precision = cfg.get("vit_precision", "fp16")
         freeze_vit = cfg.get("freeze_vit", True)
         freeze_qformer = cfg.get("freeze_qformer", True)
-        low_resource = cfg.get("low_resource", True)
+        low_resource = cfg.get("low_resource", False)
         device_8bit = cfg.get("device_8bit", 0)
+        
+        lora_r = cfg.get("lora_r")
+        lora_target_modules = cfg.get("lora_target_modules")
+        lora_alpha = cfg.get("lora_alpha")
+        lora_dropout = cfg.get("lora_dropout")
 
         prompt_path = cfg.get("prompt_path", "")
         prompt_template = cfg.get("prompt_template", "")
-        max_txt_len = cfg.get("max_txt_len", 32)
+        max_txt_len = cfg.get("max_txt_len", 64)
         end_sym = cfg.get("end_sym", '\n')
-
+        
         model = cls(
             vit_model=vit_model,
             q_former_model=q_former_model,
@@ -325,8 +438,12 @@ class MiniGPT4(Blip2Base):
             end_sym=end_sym,
             low_resource=low_resource,
             device_8bit=device_8bit,
+            lora_r=lora_r,
+            lora_target_modules=lora_target_modules,
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout
         )
-        
+
         ckpt_path = cfg.get("ckpt", "")  # load weights of MiniGPT-4
         if ckpt_path:
             print("Load BLIP2-LLM Checkpoint: {}".format(ckpt_path))
