@@ -244,7 +244,7 @@ class MiniGPT4(Blip2Base):
         atts_llama = atts_llama.unsqueeze(dim=1)
 
         return inputs_llama, atts_llama
-        
+    
     def prompt_wrap(self, img_embeds, atts_img, prompt):
         if prompt:
             batch_size = img_embeds.shape[0]

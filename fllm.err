@@ -1,0 +1,172 @@
+/scratch/slurm-user3/anaconda3/envs/minigpt4/lib/python3.9/site-packages/torchvision/io/image.py:13: UserWarning: Failed to load image Python extension: libtorch_cuda_cu.so: cannot open shared object file: No such file or directory
+  warn(f"Failed to load image Python extension: {e}")
+2023-10-28 16:56:37,507 [INFO] 
+=====  Running Parameters    =====
+2023-10-28 16:56:37,507 [INFO] {
+    "amp": true,
+    "batch_size_eval": 1,
+    "batch_size_train": 1,
+    "device": "cuda",
+    "dist_backend": "nccl",
+    "dist_url": "env://",
+    "distributed": true,
+    "evaluate": false,
+    "gpu": 0,
+    "init_lr": 0.0001,
+    "iters_per_epoch": 5000,
+    "lr_sched": "linear_warmup_cosine_lr",
+    "max_epoch": 100,
+    "min_lr": 8e-05,
+    "num_workers": 16,
+    "output_dir": "output/minigpt4_stage1_pretrain",
+    "rank": 0,
+    "resume_ckpt_path": null,
+    "seed": 42,
+    "task": "image_text_pretrain",
+    "train_splits": [
+        "train",
+        "valid",
+        "test"
+    ],
+    "warmup_lr": 1e-06,
+    "warmup_steps": 5000,
+    "weight_decay": 0.05,
+    "world_size": 1
+}
+2023-10-28 16:56:37,507 [INFO] 
+======  Dataset Attributes  ======
+2023-10-28 16:56:37,508 [INFO] 
+======== ct-seg =======
+2023-10-28 16:56:37,508 [INFO] {
+    "build_info": {
+        "img_path": "/home/changsun/data/ct-for-detect-seg/ct.h5",
+        "size": "None",
+        "transform": "None",
+        "txt_path": "/home/changsun/data/ct-for-detect-seg/ct_report.csv"
+    },
+    "data_type": "images",
+    "sample_ratio": 115,
+    "text_processor": {
+        "train": {
+            "name": "blip_caption"
+        }
+    },
+    "vis_processor": {
+        "train": {
+            "image_size": 224,
+            "name": "blip2_image_train"
+        }
+    }
+}
+2023-10-28 16:56:37,508 [INFO] 
+======  Model Attributes  ======
+2023-10-28 16:56:37,508 [INFO] {
+    "arch": "mini_gpt4",
+    "drop_path_rate": 0,
+    "freeze_qformer": true,
+    "freeze_vit": true,
+    "image_size": 224,
+    "llama_model": "/home/changsun/vicuna-7b-v1.3/",
+    "low_resource": true,
+    "model_type": "pretrain_vicuna",
+    "num_query_token": 32,
+    "prompt": "",
+    "use_grad_checkpoint": false,
+    "vit_precision": "fp16"
+}
+2023-10-28 16:56:37,508 [INFO] Building datasets...
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /scratch/slurm-user3/changsun/minigpt4/train.py:103 in <module>              │
+│                                                                              │
+│   100                                                                        │
+│   101                                                                        │
+│   102 if __name__ == "__main__":                                             │
+│ ❱ 103 │   main()                                                             │
+│   104                                                                        │
+│                                                                              │
+│ /scratch/slurm-user3/changsun/minigpt4/train.py:93 in main                   │
+│                                                                              │
+│    90 │   cfg.pretty_print()                                                 │
+│    91 │                                                                      │
+│    92 │   task = tasks.setup_task(cfg)                                       │
+│ ❱  93 │   datasets = task.build_datasets(cfg)                                │
+│    94 │   model = task.build_model(cfg)                                      │
+│    95 │                                                                      │
+│    96 │   runner = get_runner_class(cfg)(                                    │
+│                                                                              │
+│ /scratch/slurm-user3/changsun/minigpt4/minigpt4/tasks/base_task.py:57 in     │
+│ build_datasets                                                               │
+│                                                                              │
+│    54 │   │   │   dataset_config = datasets_config[name]                     │
+│    55 │   │   │                                                              │
+│    56 │   │   │   builder = registry.get_builder_class(name)(dataset_config) │
+│ ❱  57 │   │   │   dataset = builder.build_datasets()                         │
+│    58 │   │   │                                                              │
+│    59 │   │   │   dataset['train'].name = name                               │
+│    60 │   │   │   if 'sample_ratio' in dataset_config:                       │
+│                                                                              │
+│ /scratch/slurm-user3/changsun/minigpt4/minigpt4/datasets/builders/base_datas │
+│ et_builder.py:57 in build_datasets                                           │
+│                                                                              │
+│    54 │   │                                                                  │
+│    55 │   │   # at this point, all the annotations and image/videos should b │
+│    56 │   │   logging.info("Building datasets...")                           │
+│ ❱  57 │   │   datasets = self.build()  # dataset['train'/'val'/'test']       │
+│    58 │   │                                                                  │
+│    59 │   │   return datasets                                                │
+│    60                                                                        │
+│                                                                              │
+│ /scratch/slurm-user3/changsun/minigpt4/minigpt4/datasets/builders/image_text │
+│ _pair_builder.py:28 in build                                                 │
+│                                                                              │
+│    25 │   │   # create datasets                                              │
+│    26 │   │   # [NOTE] return inner_datasets (wds.DataPipeline)              │
+│    27 │   │   dataset_cls = self.train_dataset_cls                           │
+│ ❱  28 │   │   datasets[split] = dataset_cls(img_path=build_info.img_path,    │
+│    29 │   │   txt_path=build_info.txt_path , column='impression', size=None, │
+│    30 │   │                                                                  │
+│    31 │   │   return datasets                                                │
+│                                                                              │
+│ /scratch/slurm-user3/changsun/minigpt4/minigpt4/datasets/datasets/ct_dataset │
+│ s.py:236 in __init__                                                         │
+│                                                                              │
+│   233 │   │   │   self.img_dset = h5py.File(img_path, 'r')['ct'][:size]      │
+│   234 │   │   │   self.txt_dset = pd.read_csv(txt_path)[column][:size]       │
+│   235 │   │   else:                                                          │
+│ ❱ 236 │   │   │   print(h5py.File(img_path, 'r').keys())                     │
+│   237 │   │   │   self.img_dset = h5py.File(img_path, 'r')['ct']             │
+│   238 │   │   │   self.txt_dset = pd.read_csv(txt_path)[column]              │
+│   239 │   │   self.transform = transform                                     │
+│                                                                              │
+│ /scratch/slurm-user3/anaconda3/envs/minigpt4/lib/python3.9/site-packages/h5p │
+│ y/_hl/files.py:424 in __init__                                               │
+│                                                                              │
+│   421 │   │   │                                                              │
+│   422 │   │   │   with phil:                                                 │
+│   423 │   │   │   │   fapl = make_fapl(driver, libver, rdcc_nslots, rdcc_nby │
+│ ❱ 424 │   │   │   │   fid = make_fid(name, mode, userblock_size,             │
+│   425 │   │   │   │   │   │   │      fapl, fcpl=make_fcpl(track_order=track_ │
+│   426 │   │   │   │   │   │   │      fs_persist=fs_persist, fs_threshold=fs_ │
+│   427 │   │   │   │   │   │   │      swmr=swmr)                              │
+│                                                                              │
+│ /scratch/slurm-user3/anaconda3/envs/minigpt4/lib/python3.9/site-packages/h5p │
+│ y/_hl/files.py:190 in make_fid                                               │
+│                                                                              │
+│   187 │   │   flags = h5f.ACC_RDONLY                                         │
+│   188 │   │   if swmr and swmr_support:                                      │
+│   189 │   │   │   flags |= h5f.ACC_SWMR_READ                                 │
+│ ❱ 190 │   │   fid = h5f.open(name, flags, fapl=fapl)                         │
+│   191 │   elif mode == 'r+':                                                 │
+│   192 │   │   fid = h5f.open(name, h5f.ACC_RDWR, fapl=fapl)                  │
+│   193 │   elif mode in ['w-', 'x']:                                          │
+│                                                                              │
+│ in h5py._objects.with_phil.wrapper:54                                        │
+│                                                                              │
+│ in h5py._objects.with_phil.wrapper:55                                        │
+│                                                                              │
+│ in h5py.h5f.open:96                                                          │
+╰──────────────────────────────────────────────────────────────────────────────╯
+OSError: Unable to open file (unable to open file: name = 
+'/home/changsun/data/ct-for-detect-seg/ct.h5', errno = 2, error message = 'No 
+such file or directory', flags = 0, o_flags = 0)
+srun: error: hpc-pr-a-pod12: task 0: Exited with exit code 1

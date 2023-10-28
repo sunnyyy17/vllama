@@ -4,6 +4,6 @@ datasets:
     build_info:
       size: None
       transform: None
-      img_path: /home/changsun/data/ct-for-detect-seg/ct.h5 
-      txt_path: /home/changsun/data/ct-for-detect-seg/ct_report.csv
+      img_path: /scratch/slurm-user3/changsun/data/ct-for-detect-seg/ct.h5 
+      txt_path: /scratch/slurm-user3/changsun/data/ct-for-detect-seg/ct_report.csv
       

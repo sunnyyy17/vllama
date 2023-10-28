@@ -141,7 +141,7 @@ class CTDataset(object):
         #print('MRI Volume: ', volume.shape)
         length = volume.shape[2]
         indexes = list(np.arange(length))
-
+        
         if self.is_train:
             sampled_ind = sorted(random.sample(indexes, self.z_length))
         else:

@@ -1,0 +1,7 @@
+WORLD_SIZE=1
+MASTER_ADDR=hpc-pr-a-pod12
+
+===================================BUG REPORT===================================
+Welcome to bitsandbytes. For bug reports, please submit your error trace to: https://github.com/TimDettmers/bitsandbytes/issues
+================================================================================
+| distributed init (rank 0, world 1): env://
