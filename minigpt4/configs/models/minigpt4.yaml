@@ -8,7 +8,7 @@ model:
   vit_precision: "fp16"
   freeze_vit: True
   freeze_qformer: True
-  low_resource: True
+  low_resource: False
   # Q-Former
   num_query_token: 32
 

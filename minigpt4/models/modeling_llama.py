@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 from torch import nn
-from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss, LogSoftmax
 
 from transformers.activations import ACT2FN
 from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast, SequenceClassifierOutputWithPast
@@ -423,7 +423,6 @@ class LlamaModel(LlamaPreTrainedModel):
         super().__init__(config)
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
-
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -431,13 +430,13 @@ class LlamaModel(LlamaPreTrainedModel):
         self.gradient_checkpointing = False
         # Initialize weights and apply final processing
         self.post_init()
-
+    
     def get_input_embeddings(self):
         return self.embed_tokens
 
     def set_input_embeddings(self, value):
         self.embed_tokens = value
-
+    
     # Copied from transformers.models.bart.modeling_bart.BartDecoder._prepare_decoder_attention_mask
     def _prepare_decoder_attention_mask(self, attention_mask, input_shape, inputs_embeds, past_key_values_length):
         # create causal mask
@@ -620,9 +619,14 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     def set_decoder(self, decoder):
         self.model = decoder
-
+    
     def get_decoder(self):
         return self.model
+
+    def nan_gradient_hook(module, grad_input, grad_output):
+        for name, grad in zip(module._forward_hooks.keys(), grad_input):
+            if grad is not None and torch.isnan(grad).any():
+                print(f'NaN gradients detected in module: {name}')
 
     @add_start_docstrings_to_model_forward(LLAMA_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
@@ -685,7 +689,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-
+        
         hidden_states = outputs[0]
         logits = self.lm_head(hidden_states)
 
@@ -700,12 +704,21 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             shift_labels = shift_labels.view(-1)
             # Enable model parallelism
             shift_labels = shift_labels.to(shift_logits.device)
+            #print('shift_logits.shape', shift_logits.shape)
+            #print(shift_logits)
+            #logsft = LogSoftmax()
+            #print('shift-logits-logsoftmax', logsft(shift_logits))
+            #print('shift_labels.shape', shift_labels.shape)
+            #print(shift_labels)
+            with open('target.txt','w') as target_file:
+                #input_str = shift_labels[-32:]
+                target_file.write(str(shift_labels[-100:]))
             loss = loss_fct(shift_logits, shift_labels)
-
+        
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
-
+            
         return CausalLMOutputWithPast(
             loss=loss,
             logits=logits,
@@ -713,7 +726,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
-
+    
     def prepare_inputs_for_generation(
         self, input_ids, query_embeds=None, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
     ):
@@ -734,7 +747,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             model_inputs = {"inputs_embeds": inputs_embeds}
         else:
             model_inputs = {"input_ids": input_ids}
-
+    
         model_inputs.update(
             {
                 "position_ids": position_ids,

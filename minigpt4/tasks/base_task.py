@@ -7,7 +7,7 @@
 
 import logging
 import os
-
+import pdb
 import torch
 import torch.distributed as dist
 from minigpt4.common.dist_utils import get_rank, get_world_size, is_main_process, is_dist_avail_and_initialized
@@ -36,14 +36,14 @@ class BaseTask:
         """
         Build a dictionary of datasets, keyed by split 'train', 'valid', 'test'.
         Download dataset and annotations automatically if not exist.
-
+    
         Args:
             cfg (common.config.Config): _description_
 
         Returns:
             dict: Dictionary of torch.utils.data.Dataset objects by split.
         """
-
+        
         datasets = dict()
 
         datasets_config = cfg.datasets_cfg
@@ -51,6 +51,7 @@ class BaseTask:
         assert len(datasets_config) > 0, "At least one dataset has to be specified."
 
         for name in datasets_config:
+            #print(name)
             dataset_config = datasets_config[name]
 
             builder = registry.get_builder_class(name)(dataset_config)
@@ -59,24 +60,25 @@ class BaseTask:
             dataset['train'].name = name
             if 'sample_ratio' in dataset_config:
                 dataset['train'].sample_ratio = dataset_config.sample_ratio
-
+            
             datasets[name] = dataset
-
+        
         return datasets
-
+    
     def train_step(self, model, samples):
         loss = model(samples)["loss"]
+        print('loss:', loss)
         return loss
 
     def valid_step(self, model, samples):
         raise NotImplementedError
-
+    
     def before_evaluation(self, model, dataset, **kwargs):
         model.before_evaluation(dataset=dataset, task_type=type(self))
 
     def after_evaluation(self, **kwargs):
         pass
-
+    
     def inference_step(self):
         raise NotImplementedError
 
@@ -96,7 +98,7 @@ class BaseTask:
 
         if is_dist_avail_and_initialized():
             dist.barrier()
-
+        
         return results
 
     def train_epoch(
@@ -123,7 +125,7 @@ class BaseTask:
             cuda_enabled=cuda_enabled,
             accum_grad_iters=accum_grad_iters,
         )
-
+    
     def train_iters(
         self,
         epoch,
@@ -151,7 +153,35 @@ class BaseTask:
             cuda_enabled=cuda_enabled,
             accum_grad_iters=accum_grad_iters,
         )
-
+    
+    def plot_grad_flow(named_parameters):
+        '''Plots the gradients flowing through different layers in the net during training.
+        Can be used for checking for possible gradient vanishing / exploding problems.
+        
+        Usage: Plug this function in Trainer class after loss.backwards() as 
+        "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
+        ave_grads = []
+        max_grads= []
+        layers = []
+        for n, p in named_parameters:
+            if(p.requires_grad) and ("bias" not in n):
+                layers.append(n)
+                ave_grads.append(p.grad.abs().mean())
+                max_grads.append(p.grad.abs().max())
+        plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
+        plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
+        plt.hlines(0, 0, len(ave_grads)+1, lw=2, color="k" )
+        plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
+        plt.xlim(left=0, right=len(ave_grads))
+        plt.ylim(bottom = -0.001, top=0.02) # zoom in on the lower gradient regions
+        plt.xlabel("Layers")
+        plt.ylabel("average gradient")
+        plt.title("Gradient flow")
+        plt.grid(True)
+        plt.legend([Line2D([0], [0], color="c", lw=4),
+                    Line2D([0], [0], color="b", lw=4),
+                    Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+    
     def _train_inner_loop(
         self,
         epoch,
@@ -181,7 +211,7 @@ class BaseTask:
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         metric_logger.add_meter("loss", SmoothedValue(window_size=1, fmt="{value:.4f}"))
-
+    
         # if iter-based runner, schedule lr based on inner epoch.
         logging.info(
             "Start training epoch {}, {} iters per inner epoch.".format(
@@ -201,10 +231,15 @@ class BaseTask:
             # if using iter-based runner, we stop after iters_per_epoch iterations.
             if i >= iters_per_epoch:
                 break
-
+            
             samples = next(data_loader)
-
+            
             samples = prepare_sample(samples, cuda_enabled=cuda_enabled)
+            #print(type(samples))
+            #print('len :', len(samples))
+            #print(samples[0].shape)
+            #print(print(samples[1]))
+            '''
             samples.update(
                 {
                     "epoch": inner_epoch,
@@ -212,30 +247,34 @@ class BaseTask:
                     "iters": i,
                 }
             )
-
+            '''
             lr_scheduler.step(cur_epoch=inner_epoch, cur_step=i)
 
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                loss = self.train_step(model=model, samples=samples)
+            #with torch.cuda.amp.autocast(enabled=use_amp):
+            loss = self.train_step(model=model, samples=samples)
 
             # after_train_step()
             if use_amp:
                 scaler.scale(loss).backward()
+                #plot_grad_flow(model.named_parameters())
+                print('loss backward activated')
             else:
                 loss.backward()
-
+            
             # update gradients every accum_grad_iters iterations
             if (i + 1) % accum_grad_iters == 0:
                 if use_amp:
+                    #scaler.unscale_(optimizer)##
+                    #torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)##
                     scaler.step(optimizer)
                     scaler.update()                     
                 else:    
                     optimizer.step()
                 optimizer.zero_grad()
-
+            
             metric_logger.update(loss=loss.item())
             metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-
+            
         # after train_epoch()
         # gather the stats from all processes
         metric_logger.synchronize_between_processes()
@@ -244,7 +283,7 @@ class BaseTask:
             k: "{:.3f}".format(meter.global_avg)
             for k, meter in metric_logger.meters.items()
         }
-
+    
     @staticmethod
     def save_result(result, result_dir, filename, remove_duplicate=""):
         import json
@@ -253,12 +292,12 @@ class BaseTask:
             result_dir, "%s_rank%d.json" % (filename, get_rank())
         )
         final_result_file = os.path.join(result_dir, "%s.json" % filename)
-
+        
         json.dump(result, open(result_file, "w"))
 
         if is_dist_avail_and_initialized():
             dist.barrier()
-
+        
         if is_main_process():
             logging.warning("rank %d starts merging results." % get_rank())
             # combine results from all processes
@@ -270,9 +309,10 @@ class BaseTask:
                 )
                 res = json.load(open(result_file, "r"))
                 result += res
-
+            
             if remove_duplicate:
                 result_new = []
+                
                 id_list = []
                 for res in result:
                     if res[remove_duplicate] not in id_list:
@@ -281,6 +321,6 @@ class BaseTask:
                 result = result_new
 
             json.dump(result, open(final_result_file, "w"))
-            print("result file saved to %s" % final_result_file)
-
+            print("result file saved to %s" % final_result_file) 
+        
         return final_result_file

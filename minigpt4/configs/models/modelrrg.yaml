@@ -1,0 +1,13 @@
+model:
+  arch: mini_gpt4
+  # vit encoder
+  drop_path_rate: 0
+  use_grad_checkpoint: False
+  vit_precision: "fp16"
+  freeze_vit: True
+  low_resource: True
+  # Vicuna
+  llama_model: "/scratch/slurm-user3/changsun/vicuna-7b-v1.3/" #"/path/to/vicuna/weights/"
+  # generation configs
+  # prompt = ""
+

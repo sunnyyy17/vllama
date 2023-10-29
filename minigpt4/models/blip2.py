@@ -60,7 +60,7 @@ class Blip2Base(BaseModel):
         )
         query_tokens.data.normal_(mean=0.0, std=encoder_config.initializer_range)
         return Qformer, query_tokens
-
+    
     @classmethod
     def init_vision_encoder(
         cls, model_name, img_size, drop_path_rate, use_grad_checkpoint, precision
@@ -105,7 +105,7 @@ class Blip2Base(BaseModel):
         # if a model_path is provided, load in weights to backbone
         if model_path != None: 
             vision_encoder.load_state_dict(torch.load(model_path)) #, map_location=device))
-
+            
         return vision_encoder
     
     def load_from_pretrained(self, url_or_filename):
@@ -114,8 +114,10 @@ class Blip2Base(BaseModel):
                 url_or_filename, check_hash=False, progress=True
             )
             checkpoint = torch.load(cached_file, map_location="cpu")
+            #checkpoint = checkpoint.to(torch.float16)
         elif os.path.isfile(url_or_filename):
             checkpoint = torch.load(url_or_filename, map_location="cpu")
+            #checkpoint = checkpoint.to(torch.float16)
         else:
             raise RuntimeError("checkpoint url or path is invalid")
         

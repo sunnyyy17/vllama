@@ -101,7 +101,7 @@ class BaseModel(nn.Module):
 
     def before_evaluation(self, **kwargs):
         pass
-
+    
     def show_n_params(self, return_str=True):
         tot = 0
         for p in self.parameters():
@@ -145,7 +145,7 @@ class SharedQueueMixin:
 
         ptr = int(self.queue_ptr)
         assert self.queue_size % batch_size == 0  # for simplicity
-
+        
         # replace the keys at ptr (dequeue and enqueue)
         self.image_queue[:, ptr : ptr + batch_size] = image_feats.T
         self.text_queue[:, ptr : ptr + batch_size] = text_feats.T

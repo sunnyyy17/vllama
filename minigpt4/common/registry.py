@@ -17,7 +17,7 @@ class Registry:
         "state": {},
         "paths": {},
     }
-
+    
     @classmethod
     def register_builder(cls, name):
         r"""Register a dataset builder to registry with key 'name'
@@ -53,7 +53,7 @@ class Registry:
     @classmethod
     def register_task(cls, name):
         r"""Register a task to registry with key 'name'
-
+        
         Args:
             name: Key with which the task will be registered.
 
@@ -61,7 +61,7 @@ class Registry:
 
             from minigpt4.common.registry import registry
         """
-
+        
         def wrap(task_cls):
             from minigpt4.tasks.base_task import BaseTask
 
@@ -139,7 +139,7 @@ class Registry:
 
     @classmethod
     def register_lr_scheduler(cls, name):
-        r"""Register a model to registry with key 'name'
+        """Register a model to registry with key 'name'
 
         Args:
             name: Key with which the task will be registered.
@@ -184,7 +184,7 @@ class Registry:
             return runner_cls
 
         return wrap
-
+    
     @classmethod
     def register_path(cls, name, path):
         r"""Register a path to registry with key 'name'
@@ -193,6 +193,7 @@ class Registry:
             name: Key with which the path will be registered.
 
         Usage:
+
             from minigpt4.common.registry import registry
         """
         assert isinstance(path, str), "All path must be str."
@@ -226,11 +227,11 @@ class Registry:
     # @classmethod
     # def get_trainer_class(cls, name):
     #     return cls.mapping["trainer_name_mapping"].get(name, None)
-
+    
     @classmethod
     def get_builder_class(cls, name):
         return cls.mapping["builder_name_mapping"].get(name, None)
-
+    
     @classmethod
     def get_model_class(cls, name):
         return cls.mapping["model_name_mapping"].get(name, None)
@@ -274,11 +275,11 @@ class Registry:
     @classmethod
     def list_datasets(cls):
         return sorted(cls.mapping["builder_name_mapping"].keys())
-
+    
     @classmethod
     def get_path(cls, name):
         return cls.mapping["paths"].get(name, None)
-
+    
     @classmethod
     def get(cls, name, default=None, no_warning=False):
         r"""Get an item from registry with key 'name'
@@ -298,7 +299,7 @@ class Registry:
             value = value.get(subname, default)
             if value is default:
                 break
-        
+
         if (
             "writer" in cls.mapping["state"]
             and value == default
@@ -309,7 +310,7 @@ class Registry:
                 "of {}".format(original_name, default)
             )
         return value
-    
+
     @classmethod
     def unregister(cls, name):
         r"""Remove an item from registry with key 'name'

@@ -15,7 +15,6 @@ from transformers.modeling_outputs import (
     CausalLMOutputWithCrossAttentions,
 )
 
-
 @dataclass
 class BlipSimilarity(ModelOutput):
     sim_i2t: torch.FloatTensor = None

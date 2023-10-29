@@ -135,9 +135,9 @@ class MiniGPT4(Blip2Base):
                 llama_model,
                 torch_dtype=torch.bfloat16
             )
-        self.llama_model.model.embed_tokens.weight.requires_grad = False
+        
         self.llama_model_device = self.llama_model.device
-
+        
         if lora_r > 0:
             self.llama_model = prepare_model_for_int8_training(self.llama_model)
             loraconfig = LoraConfig(
@@ -156,7 +156,9 @@ class MiniGPT4(Blip2Base):
             for name, param in self.llama_model.named_parameters():
                 param.requires_grad = False
             print('LLaMA FROZEN')
-        
+        print(self.llama_model)
+        print(self.llama_model.model)
+        self.llama_model.model.model.embed_tokens.weight.requires_grad = False
         
         print('Loading LLAMA Done')
         '''Error: Int8 cannot be trained
@@ -242,9 +244,9 @@ class MiniGPT4(Blip2Base):
         atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(device)
         inputs_llama = inputs_llama.unsqueeze(dim=1)
         atts_llama = atts_llama.unsqueeze(dim=1)
-
+        
         return inputs_llama, atts_llama
-    
+        
     def prompt_wrap(self, img_embeds, atts_img, prompt):
         if prompt:
             batch_size = img_embeds.shape[0]
@@ -253,8 +255,8 @@ class MiniGPT4(Blip2Base):
                 p_before, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
             p_after_tokens = self.llama_tokenizer(
                 p_after, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-            p_before_embeds = self.llama_model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-            p_after_embeds = self.llama_model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
+            p_before_embeds = self.llama_model.model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
+            p_after_embeds = self.llama_model.model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
             wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
             wrapped_atts_img = atts_img[:, :1].expand(-1, wrapped_img_embeds.shape[1])
             return wrapped_img_embeds, wrapped_atts_img
@@ -318,10 +320,10 @@ class MiniGPT4(Blip2Base):
         bos = torch.ones([batch_size, 1],
                          dtype=to_regress_tokens.input_ids.dtype,
                          device=to_regress_tokens.input_ids.device) * self.llama_tokenizer.bos_token_id
-        bos_embeds = self.llama_model.model.embed_tokens(bos)
+        bos_embeds = self.llama_model.model.model.embed_tokens(bos)
         atts_bos = atts_img[:, :1]
         
-        to_regress_embeds = self.llama_model.model.embed_tokens(to_regress_tokens.input_ids)
+        to_regress_embeds = self.llama_model.model.model.embed_tokens(to_regress_tokens.input_ids)
         #print(to_regress_embeds.shape)
         #print(img_embeds.shape[0])
         #print(img_embeds.shape)

@@ -72,7 +72,7 @@ class BertEmbeddings(nn.Module):
         self.position_embedding_type = getattr(
             config, "position_embedding_type", "absolute"
         )
-
+        
         self.config = config
 
     def forward(
@@ -1025,6 +1025,7 @@ class BertLMHeadModel(BertPreTrainedModel):
             If set to :obj:`True`, :obj:`past_key_values` key value states are returned and can be used to speed up
             decoding (see :obj:`past_key_values`).
         Returns:
+        
         Example:
             >>> from transformers import BertTokenizer, BertLMHeadModel, BertConfig
             >>> import torch

@@ -13,6 +13,7 @@ from minigpt4.common.registry import registry
 from minigpt4.models.base_model import BaseModel
 from minigpt4.models.blip2 import Blip2Base
 from minigpt4.models.mini_gpt4 import MiniGPT4
+from minigpt4.models.img_emb import ImageWrapEmbeddings
 from minigpt4.processors.base_processor import BaseProcessor
 
 
@@ -21,6 +22,7 @@ __all__ = [
     "BaseModel",
     "Blip2Base",
     "MiniGPT4",
+    "ImageWrapEmbeddings"
 ]
 
 
@@ -31,7 +33,7 @@ def load_model(name, model_type, is_eval=False, device="cpu", checkpoint=None):
     To list all available models and types in registry:
     >>> from minigpt4.models import model_zoo
     >>> print(model_zoo)
-
+    
     Args:
         name (str): name of the model.
         model_type (str): type of the model.
@@ -136,7 +138,7 @@ def load_model_and_preprocess(name, model_type, is_eval=False, device="cpu"):
 
     if is_eval:
         model.eval()
-
+    
     # load preprocess
     cfg = OmegaConf.load(model_cls.default_config_path(model_type))
     if cfg is not None:
@@ -174,7 +176,7 @@ class ModelZoo:
             k: list(v.PRETRAINED_MODEL_CONFIG_DICT.keys())
             for k, v in registry.mapping["model_name_mapping"].items()
         }
-
+    
     def __str__(self) -> str:
         return (
             "=" * 50
@@ -189,12 +191,12 @@ class ModelZoo:
                 ]
             )
         )
-
+    
     def __iter__(self):
         return iter(self.model_zoo.items())
 
     def __len__(self):
         return sum([len(v) for v in self.model_zoo.values()])
 
-
+    
 model_zoo = ModelZoo()

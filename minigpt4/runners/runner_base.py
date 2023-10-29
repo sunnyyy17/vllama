@@ -30,6 +30,7 @@ from minigpt4.datasets.datasets.dataloader_utils import (
     MultiIterLoader,
     PrefetchLoader,
 )
+from minigpt4.datasets.data_utils import prepare_sample
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler
 
@@ -127,7 +128,7 @@ class RunnerBase:
             )
 
         return self._optimizer
-
+    
     @property
     def scaler(self):
         amp = self.config.run_cfg.get("amp", False)
@@ -152,7 +153,7 @@ class RunnerBase:
             min_lr = self.min_lr
             # init_lr = self.config.run_cfg.init_lr
             init_lr = self.init_lr
-
+            
             # optional parameters
             decay_rate = self.config.run_cfg.get("lr_decay_rate", None)
             warmup_start_lr = self.config.run_cfg.get("warmup_lr", -1)
@@ -164,7 +165,7 @@ class RunnerBase:
                     iters_per_epoch = len(self.dataloaders['train'])
                 except (AttributeError, TypeError):
                     iters_per_epoch = 10000
-
+            
             self._lr_sched = lr_sched_cls(
                 optimizer=self.optimizer,
                 max_epoch=max_epoch,
@@ -175,9 +176,9 @@ class RunnerBase:
                 warmup_start_lr=warmup_start_lr,
                 warmup_steps=warmup_steps,
             )
-
+        
         return self._lr_sched
-
+        
     @property
     def dataloaders(self) -> dict:
         """
@@ -205,11 +206,11 @@ class RunnerBase:
             logging.info(
                 "dataset_ratios not specified, datasets will be concatenated (map-style datasets) or chained (webdataset.DataPipeline)."
             )
-
+            
             datasets = reorg_datasets_by_split(self.datasets)
             self.datasets = datasets
             # self.datasets = concat_datasets(datasets)
-
+            
             # print dataset statistics after concatenation/chaining
             for split_name in self.datasets:
                 if isinstance(self.datasets[split_name], tuple) or isinstance(
@@ -262,7 +263,7 @@ class RunnerBase:
                     collate_fns.append([getattr(d, "collater", None) for d in dataset])
                 else:
                     collate_fns.append(getattr(dataset, "collater", None))
-
+            
             dataloaders = self.create_loaders(
                 datasets=datasets,
                 num_workers=self.config.run_cfg.num_workers,
@@ -272,13 +273,12 @@ class RunnerBase:
             )
 
             self._dataloaders = {k: v for k, v in zip(split_names, dataloaders)}
-
         return self._dataloaders
-
+    
     @property
     def cuda_enabled(self):
         return self.device.type == "cuda"
-
+    
     @property
     def max_epoch(self):
         return int(self.config.run_cfg.max_epoch)
@@ -287,7 +287,7 @@ class RunnerBase:
     def log_freq(self):
         log_freq = self.config.run_cfg.get("log_freq", 50)
         return int(log_freq)
-
+    
     @property
     def init_lr(self):
         return float(self.config.run_cfg.init_lr)
@@ -342,7 +342,7 @@ class RunnerBase:
     @property
     def train_loader(self):
         train_dataloader = self.dataloaders["train"]
-
+        
         return train_dataloader
 
     def setup_output_dir(self):
@@ -359,7 +359,7 @@ class RunnerBase:
 
         self.result_dir = result_dir
         self.output_dir = output_dir
-
+    
     def train(self):
         start_time = time.time()
         best_agg_metric = 0
@@ -422,7 +422,7 @@ class RunnerBase:
 
     def evaluate(self, cur_epoch="best", skip_reload=False):
         test_logs = dict()
-
+        
         if len(self.test_splits) > 0:
             for split_name in self.test_splits:
                 test_logs[split_name] = self.eval_epoch(
@@ -430,23 +430,50 @@ class RunnerBase:
                 )
 
             return test_logs
-
+    
+    def save_img_embed(self):
+        data_loader = self.train_loader
+        data_dir = '/scratch/slurm-user3/changsun/data/ct-2d-image-prompt-wrap/'
+        if not os.path.exists(data_dir):
+                os.makedirs(data_dir)
+        #print(data_loader[0])
+        #len_data_loader = len(data_loader)
+        train_dataloader = data_loader.loaders[0]._dataloader
+        #len_data_loader = 2510
+        print('type dataloader', type(train_dataloader))
+        print('length of train_dataloader', len(train_dataloader))
+        for idx, item in enumerate(train_dataloader):
+            '''
+            try:
+                item = next(data_loader)
+            except:
+                print('DONE')
+                break
+            '''
+            
+            #item = prepare_sample(item)
+            save_dict = self.model(item)
+            #img_idx = idx + 49
+            file_name = data_dir + str(idx) + '.pt' 
+            torch.save(save_dict, file_name)
+        return 
+    
     def train_epoch(self, epoch):
         # train
         self.model.train()
-
+        
         return self.task.train_epoch(
             epoch=epoch,
             model=self.model,
             data_loader=self.train_loader,
             optimizer=self.optimizer,
-            scaler=self.scaler,
+            scaler=None, #self.scaler,
             lr_scheduler=self.lr_scheduler,
             cuda_enabled=self.cuda_enabled,
             log_freq=self.log_freq,
             accum_grad_iters=self.accum_grad_iters,
         )
-
+    
     @torch.no_grad()
     def eval_epoch(self, split_name, cur_epoch, skip_reload=False):
         """
@@ -461,7 +488,7 @@ class RunnerBase:
         """
         data_loader = self.dataloaders.get(split_name, None)
         assert data_loader, "data_loader for split {} is None.".format(split_name)
-
+        
         # TODO In validation, you need to compute loss as well as metrics
         # TODO consider moving to model.before_evaluation()
         model = self.unwrap_dist_model(self.model)
@@ -481,13 +508,13 @@ class RunnerBase:
                 split_name=split_name,
                 epoch=cur_epoch,
             )
-
+    
     def unwrap_dist_model(self, model):
         if self.use_distributed:
             return model.module
         else:
             return model
-
+    
     def create_loaders(
         self,
         datasets,
@@ -592,6 +619,7 @@ class RunnerBase:
             "scaler": self.scaler.state_dict() if self.scaler else None,
             "epoch": cur_epoch,
         }
+        
         save_to = os.path.join(
             self.output_dir,
             "checkpoint_{}.pth".format("best" if is_best else cur_epoch),
@@ -604,7 +632,7 @@ class RunnerBase:
         Load the best checkpoint for evaluation.
         """
         checkpoint_path = os.path.join(self.output_dir, "checkpoint_best.pth")
-
+        
         logging.info("Loading checkpoint from {}.".format(checkpoint_path))
         checkpoint = torch.load(checkpoint_path, map_location="cpu")
         try:
@@ -618,7 +646,7 @@ class RunnerBase:
             )
             model.load_state_dict(checkpoint["model"], strict=False)
         return model
-
+    
     def _load_checkpoint(self, url_or_filename):
         """
         Resume from a checkpoint.
@@ -635,14 +663,14 @@ class RunnerBase:
 
         state_dict = checkpoint["model"]
         self.unwrap_dist_model(self.model).load_state_dict(state_dict,strict=False)
-
+        
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         if self.scaler and "scaler" in checkpoint:
             self.scaler.load_state_dict(checkpoint["scaler"])
 
         self.start_epoch = checkpoint["epoch"] + 1
         logging.info("Resume checkpoint from {}".format(url_or_filename))
-
+        
     @main_process
     def log_stats(self, stats, split_name):
         if isinstance(stats, dict):

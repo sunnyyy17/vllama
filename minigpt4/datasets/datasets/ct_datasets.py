@@ -21,6 +21,7 @@ import kornia
 import re
 import warnings
 import h5py
+
 from torch.utils import data
 
 def pre_caption(caption, max_words):
@@ -141,7 +142,7 @@ class CTDataset(object):
         #print('MRI Volume: ', volume.shape)
         length = volume.shape[2]
         indexes = list(np.arange(length))
-        
+
         if self.is_train:
             sampled_ind = sorted(random.sample(indexes, self.z_length))
         else:
@@ -226,21 +227,22 @@ class CTSegDataset(data.Dataset):
         data_cache_size: Number of HDF5 files that can be cached in the cache (default=3).
         transform: PyTorch transform to apply to every data instance (default=None).
     """
-    def __init__(self, img_path, txt_path, column='impression', size=None, transform=None):
+    def __init__(self, img_path, txt_path, column='impression', size=None, transform=None, is_train=True):
         super().__init__()
         if size != None: 
             print(h5py.File(img_path, 'r').keys())
             self.img_dset = h5py.File(img_path, 'r')['ct'][:size]
             self.txt_dset = pd.read_csv(txt_path)[column][:size]
-        else: 
+        else:
             print(h5py.File(img_path, 'r').keys())
             self.img_dset = h5py.File(img_path, 'r')['ct']
             self.txt_dset = pd.read_csv(txt_path)[column]
         self.transform = transform
+        self.is_train = is_train
     
     def __len__(self):
         return len(self.txt_dset)
-        
+    
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
@@ -251,10 +253,31 @@ class CTSegDataset(data.Dataset):
         txt = self.txt_dset[idx] # python str
         if type(txt) == type(float("nan")): # capture the case of empty "Impression" sections
             txt = " "
-
+        
         img = torch.from_numpy(img) # torch, (3, 320, 320)
+        img = kornia.geometry.transform.resize(img, size=(224, 224))
         if self.transform:
             img = self.transform(img)
         #sample = {'img': img, 'txt': txt }
         
         return img, txt
+        
+class ImgEmbedDataset(data.Dataset):
+
+    def __init__(self, img_embed_path, text_path, column="impression"):
+        super.__init__()
+        self.img_embed_dset = sorted(glob.glob(img_embed_path, '/*'))
+        self.text_dset = pd.read_csv(text_path)[column]
+        
+    
+    def __len__(self):
+        return len(self.text_dset)
+
+    def __getitem__(self, idx):
+
+        img_embed = torch.load(self.img_embed_dset(idx))
+        #if self.transform:
+        print(img_embed.shape)
+        text = self.text_dset[idx]
+
+        return img_embed, text
