@@ -183,7 +183,7 @@ class RunnerBase:
     def dataloaders(self) -> dict:
         """
         A property to get and create dataloaders by split just in need.
-
+        
         If no train_dataset_ratio is provided, concatenate map-style datasets and
         chain wds.DataPipe datasets separately. Training set becomes a tuple
         (ConcatDataset, ChainDataset), both are optional but at least one of them is
@@ -532,7 +532,7 @@ class RunnerBase:
             # create a single dataloader for each split
             if isinstance(dataset, ChainDataset) or isinstance(
                 dataset, wds.DataPipeline
-            ):
+            ):  
                 # wds.WebdDataset instance are chained together
                 # webdataset.DataPipeline has its own sampler and collate_fn
                 loader = iter(
@@ -543,6 +543,7 @@ class RunnerBase:
                         pin_memory=True,
                     )
                 )
+                loader = iter()
             else:
                 # map-style dataset are concatenated together
                 # setup distributed sampler

@@ -87,7 +87,7 @@ class BaseTask:
         header = "Evaluation"
         # TODO make it configurable
         print_freq = 10
-
+        
         results = []
 
         for samples in metric_logger.log_every(data_loader, print_freq, header):

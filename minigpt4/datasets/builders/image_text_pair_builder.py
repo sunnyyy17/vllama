@@ -6,7 +6,28 @@ from minigpt4.common.registry import registry
 from minigpt4.datasets.builders.base_dataset_builder import BaseDatasetBuilder
 from minigpt4.datasets.datasets.laion_dataset import LaionDataset
 from minigpt4.datasets.datasets.cc_sbu_dataset import CCSBUDataset, CCSBUAlignDataset
-from minigpt4.datasets.datasets.ct_datasets import CTDataset, CTSegDataset, ImgEmbedDataset
+from minigpt4.datasets.datasets.ct_datasets import CTDataset, CTSegDataset, CTSeg3DDataset, ImgEmbedDataset
+
+@registry.register_builder("ct-seg-3d")
+class CTSeg3dBuilder(BaseDatasetBuilder):
+    train_dataset_cls = CTSeg3DDataset
+    DATASET_CONFIG_DICT = {"default": "configs/datasets/ct-seg-3d/defaults.yaml"}
+    def build(self):
+        #self.build_processors()
+        
+        build_info = self.config.build_info
+        
+        datasets = dict()
+        split = "train"
+        
+        # create datasets
+        # [NOTE] return inner_datasets (wds.DataPipeline)
+        dataset_cls = self.train_dataset_cls
+        #print('len(CTSeg)', len(dataset_cls))
+        datasets[split] = dataset_cls(img_path=build_info.img_path,
+        txt_path=build_info.txt_path , column='report', transform=None, is_train=True)
+        
+        return datasets
 
 
 @registry.register_builder("ct-seg")

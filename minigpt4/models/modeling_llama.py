@@ -732,7 +732,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     ):
         if past_key_values:
             input_ids = input_ids[:, -1:]
-
+        
         position_ids = kwargs.get("position_ids", None)
         if attention_mask is not None and position_ids is None:
             # create position_ids on the fly for batch generation

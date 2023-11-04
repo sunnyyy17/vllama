@@ -108,6 +108,14 @@ class Blip2Base(BaseModel):
             
         return vision_encoder
     
+    def init_DINO_encoder(cls, model, model_path, patch_size):
+        if model in vits.__dict__.keys():
+            vision_encoder = vits.__dict__[args.arch](patch_size=patch_size)
+        
+        if model_path != None:
+            #vision_encoder.load_state_dict(torch.load(model_path))
+            vision_encoder.backbone.load_state_dict(torch.load(model_path))
+    
     def load_from_pretrained(self, url_or_filename):
         if is_url(url_or_filename):
             cached_file = download_cached_file(

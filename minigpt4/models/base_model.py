@@ -157,7 +157,6 @@ class SharedQueueMixin:
         ptr = (ptr + batch_size) % self.queue_size  # move pointer
         self.queue_ptr[0] = ptr
 
-
 class MomentumDistilationMixin:
     @torch.no_grad()
     def copy_params(self):
@@ -167,7 +166,7 @@ class MomentumDistilationMixin:
             ):
                 param_m.data.copy_(param.data)  # initialize
                 param_m.requires_grad = False  # not update by gradient
-
+    
     @torch.no_grad()
     def _momentum_update(self):
         for model_pair in self.model_pairs:

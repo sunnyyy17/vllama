@@ -9,6 +9,7 @@ from minigpt4.common.registry import registry
 from minigpt4.models.blip2 import Blip2Base, disabled_train
 from minigpt4.models.modeling_llama import LlamaForCausalLM
 from transformers import LlamaTokenizer
+import minigpt4.models.vision_transformer as vits 
 import pdb
 
 from peft import (
@@ -75,18 +76,31 @@ class MiniGPT4(Blip2Base):
                 param.requires_grad = False
             self.visual_encoder = self.visual_encoder.eval()
             self.visual_encoder.train = disabled_train
-            '''
+            
             for name, param in self.ln_vision.named_parameters():
                 param.requires_grad = False
             self.ln_vision = self.ln_vision.eval()
             self.ln_vision.train = disabled_train
-            '''
+            
+            logging.info("freeze vision encoder")
+
+        ###FOR DINO
+        '''
+        self.visual_encoder =self.init_DINO_encoder(vit_model, vit_path, patch_size=16)
+
+        if freeze_vit:
+            for name, param in self.visual_encoder.named_parameters():
+                param.requires_grad = False
             logging.info("freeze vision encoder")
         
         print('Loading VIT Done')
-        print('Loading Q-Former')
         print('visual_encoder.num_features', self.visual_encoder.num_features)
+
         '''
+        ###USING Q-Former
+        print('Loading Q-Former')
+        
+        
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features
         )
@@ -98,10 +112,9 @@ class MiniGPT4(Blip2Base):
             layer.output = None
             layer.intermediate = None
         self.load_from_pretrained(url_or_filename=q_former_model)
-
         self.Qformer = self.Qformer.train()
-        '''
-        '''
+        
+        
         if freeze_qformer:
             for name, param in self.Qformer.named_parameters():
                 param.requires_grad = False ###Fine-tune QFormer with CheXzero vision encoder
@@ -109,9 +122,11 @@ class MiniGPT4(Blip2Base):
             self.Qformer.train = disabled_train
             self.query_tokens.requires_grad = False
             logging.info("freeze Qformer")
-        '''
+        
         print('Loading Q-Former Done')
-    
+        
+        ###END Q-Former
+
         print('Loading LLAMA')
         
         self.llama_tokenizer = LlamaTokenizer.from_pretrained(llama_model, use_fast=False)
@@ -205,19 +220,38 @@ class MiniGPT4(Blip2Base):
     def encode_img(self, image):
         device = self.llama_model_device
         #print('Device', device)
-        '''
+        
         if self.low_resource:
             self.vit_to_cpu()
             image = image.to("cpu")
-        '''
-        '''
+        
+        
         with self.maybe_autocast():
             #image_embeds = self.ln_vision(self.visual_encoder(image)).to(device)
-            image_embeds = self.visual_encoder(image).to(device)
-            print("image_embeds.shape", image_embeds.shape)
+            #image_embeds = self.visual_encoder(image).to(device)
+            ###CTSEG-3D-PROCESSING
+            print('image.shape', image.shape)
+            image_embeds = []
+            for idx in range(image.shape[1]):
+                slice = image[0][idx]
+                print('slice.shape', slice.shape)
+                slice_image = torch.cat((slice, slice, slice), dim=0)
+                slice_embeds = self.visual_encoder(slice_image).to(device)
+                print('slice embeds.shape', slice_embeds.shape)
+                image_embeds = torch.cat((image_3d_embeds, slice_embeds), dim=0)
+            
+            print('image_embeds.shape', image_embeds)
+            #image = [B, C, H, W] B we want it to be the number of depth slices...
+            #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
+
+            #print("image_embeds.shape", image_embeds.shape)
+            
+            
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
-            print("image_atts.shape", image_embeds.shape)
+            
+            print("image_atts.shape", image_atts.shape)
             print("self.query_tokens.shape", self.query_tokens.shape)
+            
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
             print("query_tokens.shape", query_tokens.shape)
             query_output = self.Qformer.bert(
@@ -226,15 +260,16 @@ class MiniGPT4(Blip2Base):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-        
+            
             #print("query_output.shape", query_output.shape)
             print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
-            
-            inputs_llama = self.llama_proj(query_output.last_hidden_state)
+            print('query max, min', query_output.last_hidden_state.max(), query_output.last_hidden_state.min())
+            inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
             print("inputs_llama.shape", inputs_llama.shape)
             atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
-        '''
 
+        ###FOR VISION ENCODER + FFN/LINEAR LAYER Only
+        '''
         #with self.maybe_autocast():
         print('image.shape', image.shape)
         image_embeds = self.visual_encoder(image).to(device)
@@ -244,7 +279,7 @@ class MiniGPT4(Blip2Base):
         atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(device)
         inputs_llama = inputs_llama.unsqueeze(dim=1)
         atts_llama = atts_llama.unsqueeze(dim=1)
-        
+        '''
         return inputs_llama, atts_llama
         
     def prompt_wrap(self, img_embeds, atts_img, prompt):
@@ -262,6 +297,7 @@ class MiniGPT4(Blip2Base):
             return wrapped_img_embeds, wrapped_atts_img
         else:
             return img_embeds, atts_img
+    
     
     def forward(self, samples):
         #image = samples["image"]
@@ -284,9 +320,9 @@ class MiniGPT4(Blip2Base):
             prompt = random.choice(self.prompt_list)
             img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, prompt)
         
-
+        
         self.llama_tokenizer.padding_side = "right"
-
+        
         #text = [t + self.end_sym for t in samples["text_input"]]
         text = [t + self.end_sym for t in samples[1]]
         to_regress_tokens = self.llama_tokenizer(
@@ -311,11 +347,8 @@ class MiniGPT4(Blip2Base):
                        dtype=torch.long).to(image.device).fill_(-100)  # plus one for bos
         )
         
-        #print('empty:', empty_targets.size())
-        
-        
         targets = torch.cat([empty_targets, targets], dim=1)
-        #print('target:', targets.size())
+
         batch_size = img_embeds.shape[0]
         bos = torch.ones([batch_size, 1],
                          dtype=to_regress_tokens.input_ids.dtype,
@@ -324,68 +357,16 @@ class MiniGPT4(Blip2Base):
         atts_bos = atts_img[:, :1]
         
         to_regress_embeds = self.llama_model.model.model.embed_tokens(to_regress_tokens.input_ids)
-        #print(to_regress_embeds.shape)
-        #print(img_embeds.shape[0])
-        #print(img_embeds.shape)
-        #print(bos_embeds.shape)
-        #print('repeat size', img_embeds.shape[0]//to_regress_embeds.shape[0])
-        to_regress_embeds = to_regress_embeds.repeat(img_embeds.shape[0]//to_regress_embeds.shape[0], 1, 1)
-        #
-        #print('bos_embeds.shape', bos_embeds.shape)
-        #print('to_regress shape', to_regress_embeds.shape)
-        #print('Text', text)
-        #print('sample[1]', samples[1])
-        #print('to_regress_embeds shape', to_regress_embeds.shape)
-        #print('to_regress_tokens shape', to_regress_tokens.input_ids.shape)
-        nan_indices = torch.isnan(to_regress_embeds).nonzero(as_tuple=True)
-        #print('nan_indices', nan_indices)
-        #print('nan_indices.shape', nan_indices.shape)
-        #print('to_regress_token.input_ids', to_regress_tokens.input_ids)
-        #print('length of to_regress_tokens.input_ids', len(to_regress_tokens.input_ids))
-        list_nan_indices = list(set(nan_indices[0]))
-        #print('list_nan_indices', list_nan_indices)
-        tokens_that_nan = to_regress_tokens.input_ids[list_nan_indices]
-        #print('length of nan_indices[0]', len(nan_indices[0]))
-        #print('length of nan_indices[1]', len(nan_indices[1]))
-        #print('length of nan_indices[2]', len(nan_indices[2]))
 
-        #print('lenght of tokens_that_nan', len(tokens_that_nan))
-        #print('token ids that yield NAN', tokens_that_nan)
-        #print('is img_token nan', img_embeds.isnan())
-        #print('img_token.shape', img_embeds.shape)
-        #print('img_embeds.dtype', img_embeds.dtype)
-        #img_embeds = img_embeds.to(torch.float16)
-        
-        img_embeds = img_embeds / 10
+        to_regress_embeds = to_regress_embeds.repeat(img_embeds.shape[0]//to_regress_embeds.shape[0], 1, 1)
+
+        #img_embeds = img_embeds / 10
         inputs_embeds = torch.cat([bos_embeds, img_embeds, to_regress_embeds], dim=1)
-        #inputs_embeds = torch.cat([bos_embeds, img_embeds], dim=1)
-        #inputs_embeds = (inputs_embeds - inputs_embeds.min()) / (inputs_embeds.max()-inputs_embeds.min())
-        #print('input_embeds.dtype', inputs_embeds.dtype)
-        #print('img max, min', inputs_embeds.max(), inputs_embeds.min())
-        #print('regress_, ', to_regress_embeds.max(), to_regress_embeds.min())
-        #inputs_embeds = torch.cat([bos_embeds, to_regress_embeds, to_regress_embeds], dim=1)
-        #print('to_regress', to_regress_tokens.attention_mask.shape)
         
         to_regress_tokens.attention_mask = to_regress_tokens.attention_mask.repeat(atts_img.shape[0]//to_regress_tokens.attention_mask.shape[0], 1)
-        #print('atts_bos, atts_img', atts_bos, atts_img)
-        #print(atts_bos.get_device(), atts_img.get_device(), to_regress_tokens.attention_mask.get_device())
+
         attention_mask = torch.cat([atts_bos, atts_img, to_regress_tokens.attention_mask], dim=1)
-        #attention_mask = torch.cat([atts_bos, to_regress_tokens.attention_mask, to_regress_tokens.attention_mask], dim=1)
-        #print('attention mask', attention_mask.shape)
-        #print('attention mask show', attention_mask)
-        #file_name = 
-        #torch.save()
-        #if not os.exists(dir_name):
-            #os.makedir(dir_name)
-        
-        #file_name = dir_name + ''
-        #torch.save()
-        #print('input_embeds.shape', inputs_embeds.shape)
-        #print('targets.shape', targets.shape)
-        #print(img_embeds)
-        #print(to_regress_embeds)
-        #print(targets)
-        #with self.maybe_autocast():
+
         with torch.autograd.detect_anomaly():
             outputs = self.llama_model(
                 inputs_embeds=inputs_embeds,
@@ -400,7 +381,7 @@ class MiniGPT4(Blip2Base):
     
     @classmethod
     def from_config(cls, cfg):
-        vit_model = cfg.get("vit_model", "ViT-B/32") #"eva_clip_g"
+        vit_model = cfg.get("vit_model", 'vit_small') #"ViT-B/32" #"eva_clip_g"
         q_former_model = cfg.get("q_former_model", "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth")
         img_size = cfg.get("image_size")
         num_query_token = cfg.get("num_query_token")

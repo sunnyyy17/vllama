@@ -15,7 +15,7 @@ model:
   ckpt: '/scratch/slurm-user3/changsun/pretrained_minigpt4.pth'
 
 datasets:
-  ct-seg:
+  ct-seg-3d:
     vis_processor: 
       train:
         name: "blip2_image_train"
@@ -34,9 +34,9 @@ run:
   warmup_lr: 1e-6
 
   weight_decay: 0.05
-  max_epoch: 10
-  batch_size_train: 32
-  batch_size_eval: 32
+  max_epoch: 30
+  batch_size_train: 1
+  batch_size_eval: 1
   num_workers: 16
   warmup_steps: 5000
   iters_per_epoch: 5000
