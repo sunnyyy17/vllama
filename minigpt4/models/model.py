@@ -244,6 +244,7 @@ class VisualTransformer(nn.Module):
         x = self.conv1(x)  # shape = [*, width, grid, grid]
         x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
         x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
+        #print('x.shape', x.shape)
         x = torch.cat([self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device), x], dim=1)  # shape = [*, grid ** 2 + 1, width]
         #print('x shape', x.shape)
         #print('x pos shape', self.positional_embedding.to(x.dtype).shape)

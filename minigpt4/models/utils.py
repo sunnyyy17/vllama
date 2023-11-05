@@ -373,6 +373,7 @@ class MetricLogger(object):
                 'time: {time}',
                 'data: {data}'
             ])
+    
         MB = 1024.0 * 1024.0
         for obj in iterable:
             data_time.update(time.time() - end)

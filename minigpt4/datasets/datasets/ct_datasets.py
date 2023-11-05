@@ -231,21 +231,24 @@ class CTSeg3DDataset(data.Dataset):
         super().__init__()
         img_dset = sorted(glob.glob(img_path+'/*.npy'))
         img_dset.sort(key=natural_keys)
-        #self.img_dset = img_dset
+        #print('img_dset', img_dset)
+        self.img_dset = img_dset
         self.txt_dset = pd.read_csv(txt_path)[column]
         self.transform = transform
         self.is_train = is_train
         if self.is_train:
-            self.img_dset = img_dset[:0.9*len(img_dset)]
+            self.img_dset = self.img_dset[:int(0.95*len(img_dset))]
+            self.txt_dset = self.txt_dset[:int(0.95*len(img_dset))]
         
     def __len__(self):
         return len(self.txt_dset)
     
     def __getitem__(self, idx):
+        #print('idx', idx)
+        img = np.load(self.img_dset[idx])
         
-        img = self.img_dset[idx]
         img = torch.from_numpy(img)
-        txt = self.txt_path[idx]
+        txt = self.txt_dset[idx]
         if type(txt) == type(float("nan")): # capture the case of empty "Impression" sections
             txt = " "
         

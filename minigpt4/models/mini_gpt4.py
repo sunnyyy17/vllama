@@ -11,6 +11,7 @@ from minigpt4.models.modeling_llama import LlamaForCausalLM
 from transformers import LlamaTokenizer
 import minigpt4.models.vision_transformer as vits 
 import pdb
+import kornia
 
 from peft import (
     LoraConfig,
@@ -77,10 +78,10 @@ class MiniGPT4(Blip2Base):
             self.visual_encoder = self.visual_encoder.eval()
             self.visual_encoder.train = disabled_train
             
-            for name, param in self.ln_vision.named_parameters():
-                param.requires_grad = False
-            self.ln_vision = self.ln_vision.eval()
-            self.ln_vision.train = disabled_train
+            #for name, param in self.ln_vision.named_parameters():
+                #param.requires_grad = False
+            #self.ln_vision = self.ln_vision.eval()
+            #self.ln_vision.train = disabled_train
             
             logging.info("freeze vision encoder")
 
@@ -94,15 +95,15 @@ class MiniGPT4(Blip2Base):
             logging.info("freeze vision encoder")
         
         print('Loading VIT Done')
-        print('visual_encoder.num_features', self.visual_encoder.num_features)
+        
 
         '''
         ###USING Q-Former
         print('Loading Q-Former')
-        
+        print('visual_encoder.num_features', self.visual_encoder.num_features)
         
         self.Qformer, self.query_tokens = self.init_Qformer(
-            num_query_token, self.visual_encoder.num_features
+            num_query_token, 1408
         )
         
         self.Qformer.cls = None
@@ -196,6 +197,10 @@ class MiniGPT4(Blip2Base):
         #print('1-0', self.llama_model_device)
         ###Dimension Matching? Distribution Matching? ###REFER to Cross-Modal Finetuning
         #print('config.hidden_size', self.llama_model.config.hidden_size)
+        #.
+        #qform_proj = self.visual_encoder.num_features
+        #qform_out = self.Qformer.bert.encoder.layer.0.crossattention.self.value.weight.shape[1]
+        self.qform_proj_chz = nn.Linear(768, 1408).to(self.llama_model_device)
         self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
         #print('get device', self.llama_proj_chz.device)
         self.max_txt_len = max_txt_len
@@ -230,30 +235,38 @@ class MiniGPT4(Blip2Base):
             #image_embeds = self.ln_vision(self.visual_encoder(image)).to(device)
             #image_embeds = self.visual_encoder(image).to(device)
             ###CTSEG-3D-PROCESSING
-            print('image.shape', image.shape)
-            image_embeds = []
+            #print('image.shape', image.shape)
+            #image_embeds = []
+            #print(image )
             for idx in range(image.shape[1]):
                 slice = image[0][idx]
-                print('slice.shape', slice.shape)
+                #print('slice.shape', slice.shape)
+                slice = kornia.geometry.transform.resize(slice, size=(224, 224))
+                slice = torch.unsqueeze(slice, dim=0)
                 slice_image = torch.cat((slice, slice, slice), dim=0)
+                slice_image = torch.unsqueeze(slice_image, dim=0)
                 slice_embeds = self.visual_encoder(slice_image).to(device)
-                print('slice embeds.shape', slice_embeds.shape)
-                image_embeds = torch.cat((image_3d_embeds, slice_embeds), dim=0)
+                #print('slice embeds.shape', slice_embeds.shape)
+                if idx == 0:
+                    image_embeds = slice_embeds
+                image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
             
-            print('image_embeds.shape', image_embeds)
+            #print('image_embeds.shape', image_embeds.shape)
+            image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
 
             #print("image_embeds.shape", image_embeds.shape)
             
-            
+            image_embeds = self.qform_proj_chz(image_embeds)
+            #print('qform_aligned image_embeds.shape', image_embeds.shape)
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
             
-            print("image_atts.shape", image_atts.shape)
-            print("self.query_tokens.shape", self.query_tokens.shape)
+            #print("image_atts.shape", image_atts.shape)
+            #print("self.query_tokens.shape", self.query_tokens.shape)
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-            print("query_tokens.shape", query_tokens.shape)
+            #print("query_tokens.shape", query_tokens.shape)
             query_output = self.Qformer.bert(
                 query_embeds=query_tokens,
                 encoder_hidden_states=image_embeds,
@@ -262,10 +275,10 @@ class MiniGPT4(Blip2Base):
             )
             
             #print("query_output.shape", query_output.shape)
-            print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
-            print('query max, min', query_output.last_hidden_state.max(), query_output.last_hidden_state.min())
+            #print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
+            #print('query max, min', query_output.last_hidden_state.max(), query_output.last_hidden_state.min())
             inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
-            print("inputs_llama.shape", inputs_llama.shape)
+            #print("inputs_llama.shape", inputs_llama.shape)
             atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
 
         ###FOR VISION ENCODER + FFN/LINEAR LAYER Only

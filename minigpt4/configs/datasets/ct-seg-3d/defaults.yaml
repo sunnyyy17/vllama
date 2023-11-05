@@ -3,5 +3,5 @@ datasets:
     data_type: images
     build_info:
       transform: None
-      img_path: /scratch/slurm-user3/changsun/data/ct-for-detect-seg/ct_volume_brain/ct.h5 
+      img_path: /scratch/slurm-user3/changsun/data/ct-for-detect-seg/ct_volume_brain/
       txt_path: /scratch/slurm-user3/changsun/data/ct-for-detect-seg/ct_3d_report.csv
