@@ -1,5 +1,0 @@
-datasets:
-  ct-seg:
-    data_type: images
-    build_info:
-      storage: /scratch/slurm-user3/changsun/data/ct-for-detect-seg/ct_brain_align/
