@@ -8,5 +8,6 @@
 *.slurm
 *.err
 *.out
+*.yaml
 /output
 /outputs
