@@ -1,0 +1,29 @@
+model:
+  arch: mini_gpt4_orig
+  model_type: pretrain_vicuna
+  freeze_vit: True
+  freeze_qformer: True
+  max_txt_len: 160
+  end_sym: "###"
+  low_resource: True
+  prompt_path: "prompts/alignment.txt"
+  prompt_template: '###Human: {} ###Assistant: '
+  ckpt: '/home/changsun/minigpt4/eval_configs/pretrained_minigpt4.pth' #'/path/to/pretrained/ckpt/'
+  vit_path: '/home/changsun/data/ct-for-detect-seg/checkpoint_15000.pt'
+  lora_r: 0
+  lora_target_modules: ["q_proj","v_proj"]
+  lora_alpha: 16
+  lora_dropout: 0.05
+
+datasets:
+  cc_sbu_align:
+    vis_processor:
+      train:
+        name: "blip2_image_eval"
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"
+
+run:
+  task: image_text_pretrain
