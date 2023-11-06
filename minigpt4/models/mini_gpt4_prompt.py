@@ -20,8 +20,8 @@ from peft import (
 )
 
 
-@registry.register_model("mini_gpt4_orig")
-class MiniGPT4Orig(Blip2Base):
+@registry.register_model("mini_gpt4")
+class MiniGPT4(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.
     """
@@ -32,7 +32,7 @@ class MiniGPT4Orig(Blip2Base):
     
     def __init__(
         self,
-        vit_model="eva_clip_g",
+        vit_model='ViT-B/32',
         q_former_model="https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth",
         img_size=224,
         drop_path_rate=0,
@@ -62,14 +62,15 @@ class MiniGPT4Orig(Blip2Base):
         print('Loading VIT')
         
         ###FOR BLIP-2
+        '''
         self.visual_encoder, self.ln_vision = self.init_vision_encoder(
             vit_model, img_size, drop_path_rate, use_grad_checkpoint, vit_precision
         )
-        
+        ''' 
         
         ###FOR CheXZero
-        #print("CHECK UPDATE")
-        #self.visual_encoder = self.init_CheXzero_encoder(vit_path)
+        print("CHECK UPDATE")
+        self.visual_encoder = self.init_CheXzero_encoder(vit_path)
         
         if freeze_vit:
             for name, param in self.visual_encoder.named_parameters():
@@ -94,6 +95,8 @@ class MiniGPT4Orig(Blip2Base):
             logging.info("freeze vision encoder")
         
         print('Loading VIT Done')
+        
+
         '''
         ###USING Q-Former
         print('Loading Q-Former')
@@ -169,10 +172,9 @@ class MiniGPT4Orig(Blip2Base):
             for name, param in self.llama_model.named_parameters():
                 param.requires_grad = False
             print('LLaMA FROZEN')
-        
         print(self.llama_model)
         print(self.llama_model.model)
-        self.llama_model.model.embed_tokens.weight.requires_grad = False
+        self.llama_model.model.model.embed_tokens.weight.requires_grad = False
         
         print('Loading LLAMA Done')
         '''Error: Int8 cannot be trained
@@ -187,21 +189,20 @@ class MiniGPT4Orig(Blip2Base):
         '''
         
         ###TODO - FIX QFormer Alignment self.llama_proj
-        
+        '''
         self.llama_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.llama_model.config.hidden_size
         )
-        
+        '''
         #print('1-0', self.llama_model_device)
         ###Dimension Matching? Distribution Matching? ###REFER to Cross-Modal Finetuning
         #print('config.hidden_size', self.llama_model.config.hidden_size)
         #.
         #qform_proj = self.visual_encoder.num_features
         #qform_out = self.Qformer.bert.encoder.layer.0.crossattention.self.value.weight.shape[1]
-        #self.qform_proj_chz = nn.Linear(768, 1408).to(self.llama_model_device)
-        #self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        self.qform_proj_chz = nn.Linear(768, 1408).to(self.llama_model_device)
+        self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
         #print('get device', self.llama_proj_chz.device)
-        
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
         
@@ -216,8 +217,8 @@ class MiniGPT4Orig(Blip2Base):
             self.prompt_list = []
     
     def vit_to_cpu(self):
-        self.ln_vision.to("cpu")
-        self.ln_vision.float()
+        #self.ln_vision.to("cpu")
+        #self.ln_vision.float()
         self.visual_encoder.to("cpu")
         self.visual_encoder.float()
     
@@ -231,9 +232,8 @@ class MiniGPT4Orig(Blip2Base):
         
         
         with self.maybe_autocast():
-            image_embeds = self.ln_vision(self.visual_encoder(image)).to(device)
+            #image_embeds = self.ln_vision(self.visual_encoder(image)).to(device)
             #image_embeds = self.visual_encoder(image).to(device)
-            '''
             ###CTSEG-3D-PROCESSING
             #print('image.shape', image.shape)
             #image_embeds = []
@@ -259,7 +259,6 @@ class MiniGPT4Orig(Blip2Base):
             #print("image_embeds.shape", image_embeds.shape)
             
             image_embeds = self.qform_proj_chz(image_embeds)
-            '''
             #print('qform_aligned image_embeds.shape', image_embeds.shape)
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
             
@@ -278,7 +277,7 @@ class MiniGPT4Orig(Blip2Base):
             #print("query_output.shape", query_output.shape)
             #print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
             #print('query max, min', query_output.last_hidden_state.max(), query_output.last_hidden_state.min())
-            inputs_llama = self.llama_proj(query_output.last_hidden_state)
+            inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
             #print("inputs_llama.shape", inputs_llama.shape)
             atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
 
@@ -304,8 +303,8 @@ class MiniGPT4Orig(Blip2Base):
                 p_before, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
             p_after_tokens = self.llama_tokenizer(
                 p_after, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-            p_before_embeds = self.llama_model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-            p_after_embeds = self.llama_model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
+            p_before_embeds = self.llama_model.model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
+            p_after_embeds = self.llama_model.model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
             wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
             wrapped_atts_img = atts_img[:, :1].expand(-1, wrapped_img_embeds.shape[1])
             return wrapped_img_embeds, wrapped_atts_img
@@ -395,7 +394,7 @@ class MiniGPT4Orig(Blip2Base):
     
     @classmethod
     def from_config(cls, cfg):
-        vit_model = cfg.get("vit_model", "eva_clip_g")#'vit_small') #"ViT-B/32" #"eva_clip_g"
+        vit_model = cfg.get("vit_model", 'vit_small') #"ViT-B/32" #"eva_clip_g"
         q_former_model = cfg.get("q_former_model", "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth")
         img_size = cfg.get("image_size")
         num_query_token = cfg.get("num_query_token")
