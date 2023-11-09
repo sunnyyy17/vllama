@@ -14,6 +14,7 @@ from minigpt4.models.base_model import BaseModel
 from minigpt4.models.blip2 import Blip2Base
 from minigpt4.models.mini_gpt4_orig import MiniGPT4Orig
 from minigpt4.models.mini_gpt4 import MiniGPT4
+from minigpt4.models.mini_gpt4_asclepius import MiniGPT4Ascl
 from minigpt4.models.img_emb import ImageWrapEmbeddings
 from minigpt4.processors.base_processor import BaseProcessor
 
@@ -24,6 +25,7 @@ __all__ = [
     "Blip2Base",
     "MiniGPT4Orig",
     "MiniGPT4",
+    "MiniGPT4Ascl",
     "ImageWrapEmbeddings"
 ]
 

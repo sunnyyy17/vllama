@@ -91,7 +91,7 @@ class BertEmbeddings(nn.Module):
             position_ids = self.position_ids[
                 :, past_key_values_length : seq_length + past_key_values_length
             ].clone()
-
+        
         if input_ids is not None:
             embeddings = self.word_embeddings(input_ids)
             if self.position_embedding_type == "absolute":
