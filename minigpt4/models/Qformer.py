@@ -928,7 +928,7 @@ class BertModel(BertPreTrainedModel):
                 )
         else:
             encoder_extended_attention_mask = None
-
+        
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
         # attention_probs has shape bsz x n_heads x N x N
@@ -985,7 +985,7 @@ class BertLMHeadModel(BertPreTrainedModel):
 
     def set_output_embeddings(self, new_embeddings):
         self.cls.predictions.decoder = new_embeddings
-
+    
     def forward(
         self,
         input_ids=None,
@@ -1149,7 +1149,7 @@ class BertForMaskedLM(BertPreTrainedModel):
 
     def set_output_embeddings(self, new_embeddings):
         self.cls.predictions.decoder = new_embeddings
-
+    
     def forward(
         self,
         input_ids=None,
@@ -1210,7 +1210,7 @@ class BertForMaskedLM(BertPreTrainedModel):
             return (
                 ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
             )
-
+        
         return MaskedLMOutput(
             loss=masked_lm_loss,
             logits=prediction_scores,

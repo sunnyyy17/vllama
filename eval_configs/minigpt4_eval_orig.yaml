@@ -1,5 +1,5 @@
 model:
-  arch: mini_gpt4_orig
+  arch: mini_gpt4
   model_type: pretrain_vicuna
   freeze_vit: True
   freeze_qformer: True

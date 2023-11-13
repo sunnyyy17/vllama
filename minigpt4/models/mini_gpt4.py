@@ -223,7 +223,7 @@ class MiniGPT4(Blip2Base):
         self.visual_encoder.float()
     
     def encode_img(self, image):
-        device = 'cuda:0'
+        device = 'cuda:2'
         #print('Device', device)
         
         if self.low_resource:

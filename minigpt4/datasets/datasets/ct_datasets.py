@@ -21,6 +21,8 @@ import kornia
 import re
 import warnings
 import h5py
+import nibabel as nib
+import json
 
 from torch.utils import data
 
@@ -174,7 +176,7 @@ class CTDataset(object):
             h_t = 0
             w_t = 0
 
-        preproc_frames = volume[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, sampled_ind]
+        preproc_frames = volume[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, :]
         #print('volume shape', preproc_frames.shape)
         #print('volume min, max', preproc_frames.min(), preproc_frames.max())
 
@@ -305,27 +307,28 @@ class CTSegDataset(data.Dataset):
         return img, txt
 
 class rectalMRIDataset(object):
-    def __init__(self, args, config, is_train=True, is_val=False, is_large=False):
+    def __init__(self, img_path, txt_path, transform=None, is_train=True):
         
-        self.args = args
-        self.config = config
-        self.config
-
+        #self.args = args
+        #self.config = config
+        #self.config
+        self.img_path = img_path
+        self.txt_path = txt_path
+        self.is_train = is_train
         #self.csv = pd.read_csv(self.args.csv_dir)
-        with open(self.args.csv_dir, 'r') as json_reader:
+        with open(self.txt_path, 'r') as json_reader:
             self.mri_label = json.load(json_reader)
         
-        self.all_subject = sorted(glob.glob(self.args.data_dir + '/**/*'))
+        self.all_subject = sorted(glob.glob(self.img_path + '/**/NIfTI/*.tar.gz'))
         
         # split train/val/test set (not depending on the seed) -> fixed division
-        if is_train:
-            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.90)]  # 90%
+        if self.is_train:
+            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.95)]  # 90%
         else:
-            if is_val:
-                self.subject_list = self.all_subject[int(len(self.all_subject)*0.90):int(len(self.all_subject)*0.94)]   # 4%
-            else:
-                self.subject_list = self.all_subject[int(len(self.all_subject)*0.94):]  # 6%
+            self.subject_list = self.all_subject[int(len(self.all_subject)*0.95):]  # 6%
+        
         self.subject_list = sorted(self.subject_list)
+        '''
         if is_train:
             self.weights = []
             for subject in self.subject_list:
@@ -333,6 +336,7 @@ class rectalMRIDataset(object):
                 self.weights.append(weight)
             self.weights = np.array(self.weights)
             self.weights = self.weights / self.weights.sum()
+        '''
         '''
         if is_train:
             self.weights = []
@@ -358,9 +362,6 @@ class rectalMRIDataset(object):
             self.weights = np.array(self.weights)
             self.weights = self.weights / self.weights.sum()
         '''
-        self.is_train = is_train
-        self.is_large = is_large
-
         print(len(self.subject_list))
 
     def __len__(self):
@@ -369,7 +370,7 @@ class rectalMRIDataset(object):
     def __getitem__(self, idx):
         
         subject = self.subject_list[idx]
-        patient_ID = subject.split('/')[-2]
+        patient_ID = subject.split('/')[-3]
         if patient_ID[-2:] == 'MR':
             patient_ID_key = patient_ID[:-5]
         else:
@@ -386,19 +387,6 @@ class rectalMRIDataset(object):
         caption = self.mri_label[patient_ID_key]
         # caption = self.df[subject]
         caption = pre_caption(caption, max_words=200)
-        
-        length = volume.shape[2]
-        indexes = list(np.arange(length))
-
-        if self.is_train:
-            sampled_ind = sorted(random.sample(indexes, min(length, self.args.z_length)))
-        else:
-            sampled_ind = indexes
-            # try:
-            #     sampled_ind = sorted(random.sample(indexes, 32))
-            # except:
-            #     sampled_ind = sorted(random.choices(indexes, k=32))
-
 
         # Center crop and translation
         if self.is_train:
@@ -413,21 +401,21 @@ class rectalMRIDataset(object):
         preproc_frames = np.asarray(volume.dataobj)[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, sampled_ind]
         preproc_frames = torch.from_numpy(preproc_frames)
         preproc_frames = preproc_frames.permute(2, 0, 1)
-
+        
         # Brain window
         preproc_frames_brain = preproc_frames.clone()
         preproc_frames_brain[preproc_frames_brain > 80] = 80
         preproc_frames_brain[preproc_frames_brain < 0] = 0
         preproc_frames_brain = (preproc_frames_brain - preproc_frames_brain.min()) / (preproc_frames_brain.max() - preproc_frames_brain.min())
         preproc_frames_brain = preproc_frames_brain.unsqueeze(1)
-
+        
         # Subdural window
         preproc_frames_subdural = preproc_frames.clone()
         preproc_frames_subdural[preproc_frames_subdural > 170] = 170
         preproc_frames_subdural[preproc_frames_subdural < -10] = -10
         preproc_frames_subdural = (preproc_frames_subdural - preproc_frames_subdural.min()) / (preproc_frames_subdural.max() - preproc_frames_subdural.min())
         preproc_frames_subdural = preproc_frames_subdural.unsqueeze(1)
-
+        
         # Bone window
         preproc_frames_bone = preproc_frames.clone().float()
         preproc_frames_bone[preproc_frames_bone > 1500] = 1500
@@ -439,9 +427,6 @@ class rectalMRIDataset(object):
         # preproc_frames_cat = torch.cat([preproc_frames_brain, preproc_frames_subdural, preproc_frames_bone], dim=1)
         preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
                                                               size=(224, 224))
-
-        if not self.is_large:
-            preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat, size=(self.config['image_small'], self.config['image_small']))
 
         return preproc_frames_cat, caption, patient_ID
 

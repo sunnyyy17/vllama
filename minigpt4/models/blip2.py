@@ -35,7 +35,7 @@ class Blip2Base(BaseModel):
         tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         tokenizer.add_special_tokens({"bos_token": "[DEC]"})
         return tokenizer
-
+    
     def maybe_autocast(self, dtype=torch.float16):
         # if on cpu, don't use autocast
         # if on gpu, use autocast with dtype if provided, otherwise use torch.float16
