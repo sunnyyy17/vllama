@@ -5,7 +5,7 @@ import torch
 from torch.cuda.amp import autocast as autocast
 import torch.nn as nn
 import torch.nn.functional as F
-
+#from torch.profiler import profile, record_function, ProfilerActivity
 from minigpt4.common.registry import registry
 from minigpt4.models.blip2 import Blip2Base, disabled_train
 from minigpt4.models.modeling_llama import LlamaForCausalLM
@@ -37,8 +37,8 @@ def concat_all_gather(tensor):
 
 
 
-@registry.register_model("mini_gpt4_ascl")
-class MiniGPT4Ascl(Blip2Base):
+@registry.register_model("mini_gpt4_ita")
+class MiniGPT4Ita(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.
     """
@@ -130,23 +130,32 @@ class MiniGPT4Ascl(Blip2Base):
         self.Qformer, self.query_tokens = self.init_Qformer(num_query_token, 1408)
 
         self.Qformer_m, _ = self.init_Qformer(num_query_token, 1408)
-        print(self.Qformer.parameters())
+        #print(self.Qformer.parameters())
         self.Qformer.cls = None
+        self.Qformer_m.cls = None
         #self.Qformer.bert.embeddings.word_embeddings = None
         #self.Qformer.bert.embeddings.position_embeddings = None
-        #for layer in self.Qformer.bert.encoder.layer:
-            #layer.output = None
-            #layer.intermediate = None
+        '''
+        for layer in self.Qformer.bert.encoder.layer:
+            layer.output = None
+            layer.intermediate = None
         
+        for layer in self.Qformer_m.bert.encoder.layer:
+            layer.output = None
+            layer.intermediate = None
+        '''
         self.load_from_pretrained(url_or_filename=q_former_model)
         self.Qformer = self.Qformer.train()
         
         
         if freeze_qformer:
-            for name, param in self.Qformer.named_parameters():
+            for layer in self.Qformer.bert.encoder.layer:
+                for param in layer.parameters():
+                    param.requires_grad = False
+            for name, param in self.Qformer_m.named_parameters():
                 param.requires_grad = False ###Fine-tune QFormer with CheXzero vision encoder
-            self.Qformer = self.Qformer.eval()
-            self.Qformer.train = disabled_train
+            self.Qformer_m = self.Qformer_m.eval()
+            self.Qformer_m.train = disabled_train
             self.query_tokens.requires_grad = False
             logging.info("freeze Qformer")
         
@@ -157,7 +166,7 @@ class MiniGPT4Ascl(Blip2Base):
         print('Loading LLAMA')
         
         #self.llama_tokenizer = AutoTokenizer.from_pretrained("starmpcc/Asclepius-7B")
-        #llm_model = AutoModel.from_pretrained("starmpcc/Asclepius-7B")
+        #llama_model = AutoModel.from_pretrained("starmpcc/Asclepius-13B")
         #self.llama_tokenizer = AutoTokenizer.from_pretrained(llama_model)
         #llm_model = AutoModel.from_pretrained(llama_model)
         
@@ -203,9 +212,9 @@ class MiniGPT4Ascl(Blip2Base):
             for name, param in self.llama_model.named_parameters():
                 param.requires_grad = False
             print('LLaMA FROZEN')
-        print(self.llama_model)
+        #print(self.llama_model)
         #print(self.llama_model.model)
-        self.llama_model.model.embed_tokens.weight.requires_grad = False
+        self.llama_model.model.model.embed_tokens.weight.requires_grad = False
         #self.llama_model.embed_tokens.weight.requires_grad = False
         
         print('Loading LLAMA Done')
@@ -319,13 +328,18 @@ class MiniGPT4Ascl(Blip2Base):
         patch_pos_embed = patch_pos_embed.view(bs, p, dim, -1).permute(0, 3, 1, 2)
 
         return patch_pos_embed
-
+    
     @torch.no_grad()
     def _momentum_update(self):
         for model_pair in self.model_pairs:
-            print(model_pair)
+            #print(model_pair)
             for param, param_m in zip(model_pair[0].parameters(), model_pair[1].parameters()):
                     param_m.data = param_m.data * self.momentum + param.data * (1. - self.momentum)
+                    #sum_param = sum(p.numel() for p in param)
+                    #sum_param_m = sum(p.numel() for p in param_m)
+                    #print(type(model_pair[0]).__name__, sum_param)
+                    #print(type(model_pair[1]).__name__, sum_param_m)
+            
             
             '''
             try:
@@ -363,13 +377,13 @@ class MiniGPT4Ascl(Blip2Base):
                     image_embeds = slice_embeds
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
             
-            print('image_embeds.shape', image_embeds.shape)
+            #print('image_embeds.shape', image_embeds.shape)
             image_embeds = image_embeds.to(device)
             image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
             
-            print("image_embeds.shape", image_embeds.shape)
+            #print("image_embeds.shape", image_embeds.shape)
             #print('image_embeds device', image_embeds.device)
             image_embeds = self.qform_proj_chz(image_embeds)
             #print('qform_aligned image_embeds.shape', image_embeds.shape)
@@ -380,7 +394,7 @@ class MiniGPT4Ascl(Blip2Base):
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
             #print("query_tokens.shape", query_tokens.shape)
-
+            
             if query_true:
                 query_output = self.Qformer.bert(
                     query_embeds=query_tokens,
@@ -429,8 +443,8 @@ class MiniGPT4Ascl(Blip2Base):
                 p_before, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
             p_after_tokens = self.llama_tokenizer(
                 p_after, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-            p_before_embeds = self.llama_model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-            p_after_embeds = self.llama_model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
+            p_before_embeds = self.llama_model.model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
+            p_after_embeds = self.llama_model.model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
             #p_before_embeds = self.llama_model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
             #p_after_embeds = self.llama_model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
             wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
@@ -453,7 +467,7 @@ class MiniGPT4Ascl(Blip2Base):
         bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
         
-        img_embeds, atts_img, query_output = self.encode_img(image, query_true=False)
+        img_embeds, atts_img, query_output = self.encode_img(image)
         atts_img = atts_img.to(image.device)
         if hasattr(samples, 'question_split'):  # VQA dataset
             print('VQA Batch')
@@ -465,7 +479,7 @@ class MiniGPT4Ascl(Blip2Base):
     
         self.llama_tokenizer.padding_side = "right"
         
-        print('img_embeds.shape', img_embeds.shape)
+        #print('img_embeds.shape', img_embeds.shape)
         #img_embeds = img_embeds + self.interpolate_pos_encoding(self.z_embed, img_embeds)
         
         ###==========Image-Text Alignment===============###
@@ -487,7 +501,7 @@ class MiniGPT4Ascl(Blip2Base):
                     return_dict=True,
                     is_decoder=False
                 )
-        
+
         txt_embeds = txt_output.last_hidden_state[:,0,:]
         print('txt_embeds.shape', txt_embeds.shape)
 
@@ -502,9 +516,9 @@ class MiniGPT4Ascl(Blip2Base):
             #img_embeds_m = img_embeds_m + self.interpolate_pos_encoding(self.z_embed_m, img_embeds_m)
 
             #img_embeds_m = img_embeds_m.view(bs, -1, embed_dim)
-            print('query_output_m.shape', query_output_m.shape)
+            #print('query_output_m.shape', query_output_m.shape)
             image_feat_m = F.normalize(query_output_m.mean(dim=1), dim=-1)
-            print('txt_tokens.attention_mask', txt_tokens.attention_mask)
+            #print('txt_tokens.attention_mask', txt_tokens.attention_mask)
             text_output_m = self.Qformer_m.bert(
                     input_ids= txt_tokens.input_ids,
                     attention_mask= txt_tokens.attention_mask,
@@ -520,6 +534,9 @@ class MiniGPT4Ascl(Blip2Base):
             text_feat_all = torch.cat([text_feat_m.t(), self.text_queue.clone().detach()], dim=1)
             
             # image-text alignment (diagonal)
+            print('image_feat_m, image_feat_all', image_feat_m.shape)
+            print('image_feat_all', image_feat_all)
+            print('image_feat_all', image_feat_all.shape)
             sim_i2t_m = image_feat_m @ text_feat_all / self.temp
             sim_t2i_m = text_feat_m @ image_feat_all / self.temp
             print('sim_i2t_m.shape', sim_i2t_m.shape)
@@ -583,11 +600,11 @@ class MiniGPT4Ascl(Blip2Base):
         bos = torch.ones([batch_size, 1],
                          dtype=to_regress_tokens.input_ids.dtype,
                          device=to_regress_tokens.input_ids.device) * self.llama_tokenizer.bos_token_id
-        bos_embeds = self.llama_model.model.embed_tokens(bos)
+        bos_embeds = self.llama_model.model.model.embed_tokens(bos)
         #bos_embeds = self.llama_model.embed_tokens(bos)
         atts_bos = atts_img[:, :1]
         
-        to_regress_embeds = self.llama_model.model.embed_tokens(to_regress_tokens.input_ids)
+        to_regress_embeds = self.llama_model.model.model.embed_tokens(to_regress_tokens.input_ids)
         #to_regress_embeds = self.llama_model.embed_tokens(to_regress_tokens.input_ids)
 
         to_regress_embeds = to_regress_embeds.repeat(img_embeds.shape[0]//to_regress_embeds.shape[0], 1, 1)
@@ -630,7 +647,6 @@ class MiniGPT4Ascl(Blip2Base):
         lora_target_modules = cfg.get("lora_target_modules")
         lora_alpha = cfg.get("lora_alpha")
         lora_dropout = cfg.get("lora_dropout")
-
         prompt_path = cfg.get("prompt_path", "")
         prompt_template = cfg.get("prompt_template", "")
         max_txt_len = cfg.get("max_txt_len", 64)
@@ -638,8 +654,8 @@ class MiniGPT4Ascl(Blip2Base):
         temp = cfg.get("temp", 0.07)
         alpha = cfg.get("alpha", 0.04)
         momentum = cfg.get("momentum", 0.995)
-        queue_size = cfg.get("queue_size", 32768)
-
+        queue_size = cfg.get("queue_size", 10)
+        
         model = cls(
             vit_model=vit_model,
             q_former_model=q_former_model,
@@ -672,5 +688,6 @@ class MiniGPT4Ascl(Blip2Base):
             print("Load BLIP2-LLM Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
+        
         
         return model

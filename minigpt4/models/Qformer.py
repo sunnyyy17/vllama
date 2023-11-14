@@ -703,7 +703,7 @@ class BertModel(BertPreTrainedModel):
 
     def set_input_embeddings(self, value):
         self.embeddings.word_embeddings = value
-
+    
     def _prune_heads(self, heads_to_prune):
         """
         Prunes heads of the model. heads_to_prune: dict of {layer_num: list of heads to prune in this layer} See base
@@ -864,7 +864,7 @@ class BertModel(BertPreTrainedModel):
             if past_key_values is not None
             else 0
         )
-
+        
         query_length = query_embeds.shape[1] if query_embeds is not None else 0
 
         embedding_output = self.embeddings(
@@ -873,7 +873,7 @@ class BertModel(BertPreTrainedModel):
             query_embeds=query_embeds,
             past_key_values_length=past_key_values_length,
         )
-
+        
         input_shape = embedding_output.size()[:-1]
         batch_size, seq_length = input_shape
         device = embedding_output.device

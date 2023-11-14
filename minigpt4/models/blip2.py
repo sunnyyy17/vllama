@@ -128,7 +128,7 @@ class Blip2Base(BaseModel):
             #checkpoint = checkpoint.to(torch.float16)
         else:
             raise RuntimeError("checkpoint url or path is invalid")
-        
+    
         state_dict = checkpoint["model"]
         msg = self.load_state_dict(state_dict, strict=False)
 

@@ -15,6 +15,7 @@ from minigpt4.common.logger import MetricLogger, SmoothedValue
 from minigpt4.common.registry import registry
 from minigpt4.datasets.data_utils import prepare_sample
 
+from torch.profiler import profile, record_function, ProfilerActivity
 
 class BaseTask:
     def __init__(self, **kwargs):
@@ -66,7 +67,9 @@ class BaseTask:
         return datasets
     
     def train_step(self, model, samples):
+        #with profile(activities=[ProfilerActivity.CPU], profile_memory=True, record_shapes=True) as prof:
         loss = model(samples)["loss"]
+        #print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
         print('loss:', loss)
         return loss
 

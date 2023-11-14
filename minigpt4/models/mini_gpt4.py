@@ -165,7 +165,7 @@ class MiniGPT4(Blip2Base):
                 lora_dropout=lora_dropout,
             )
             self.llama_model = get_peft_model(self.llama_model, loraconfig)
-
+            
             self.llama_model.print_trainable_parameters()
         
         else:
@@ -223,7 +223,7 @@ class MiniGPT4(Blip2Base):
         self.visual_encoder.float()
     
     def encode_img(self, image):
-        device = 'cuda:2'
+        device = 'cuda:0'
         #print('Device', device)
         
         if self.low_resource:
