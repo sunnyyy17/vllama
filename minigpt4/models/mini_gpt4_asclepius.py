@@ -65,16 +65,14 @@ class MiniGPT4Ascl(Blip2Base):
         end_sym='\n',
         low_resource=True,  # use 8 bit and put vit in cpu =
         device_8bit=0,  # the device of 8bit model should be set when loading and cannot be changed anymore.
-        vit_path = "/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_imgnet_pretrained/checkpoint0095.pth",
+        vit_path = "",
         lora_r = 0, 
         lora_target_modules=["q_proj","v_proj"],
         lora_alpha = 16,
         lora_dropout = 0.05,
         temp=0,
         alpha=0,
-        momentum=0,
-        queue_size=500,
-        embed_dim=768
+        momentum=0
     ):
         super().__init__()
 
@@ -89,8 +87,6 @@ class MiniGPT4Ascl(Blip2Base):
             vit_model, img_size, drop_path_rate, use_grad_checkpoint, vit_precision
         )
         ''' 
-        ###FOR CHeXZero
-        
         
         ###FOR CheXZero
         print("CHECK UPDATE")
@@ -129,7 +125,7 @@ class MiniGPT4Ascl(Blip2Base):
         
         self.Qformer, self.query_tokens = self.init_Qformer(num_query_token, 1408)
 
-        self.Qformer_m, _ = self.init_Qformer(num_query_token, 1408)
+        self.Qformer_m, _ = self.init_Qformer(num_query_token, 1048)
         print(self.Qformer.parameters())
         self.Qformer.cls = None
         #self.Qformer.bert.embeddings.word_embeddings = None
@@ -247,20 +243,8 @@ class MiniGPT4Ascl(Blip2Base):
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
         self.temp = nn.Parameter(torch.ones([]) * temp)
-        self.alphas = alpha
+        self.alpha = alpha
         self.momentum = momentum
-
-        ###QUEUE
-        self.embed_dim = 768
-        self.queue_size = queue_size
-        self.register_buffer("image_queue", torch.randn(self.embed_dim, self.queue_size))
-        self.register_buffer("text_queue", torch.randn(self.embed_dim, self.queue_size))
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
-
-        self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
-        self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
-
-
         self.model_pairs = [[self.Qformer, self.Qformer_m],
                             #[self.vision_proj, self.vision_proj_m],
                             [self.qform_proj_chz, self.qform_proj_chz_m],
@@ -300,7 +284,7 @@ class MiniGPT4Ascl(Blip2Base):
 
         ptr = int(self.queue_ptr)
         #assert self.queue_size % batch_size == 0  # for simplicity
-        
+
         # replace the keys at ptr (dequeue and enqueue)
         self.image_queue[:, ptr:ptr + batch_size] = image_feats.T
         self.text_queue[:, ptr:ptr + batch_size] = text_feats.T
@@ -398,7 +382,6 @@ class MiniGPT4Ascl(Blip2Base):
                     encoder_attention_mask=image_atts,
                     return_dict=True,
                 )
-                
                 inputs_llama = self.llama_proj_chz_m(query_output.last_hidden_state)
                 #print("inputs_llama.shape", inputs_llama.shape)
                 atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
@@ -419,7 +402,7 @@ class MiniGPT4Ascl(Blip2Base):
         inputs_llama = inputs_llama.unsqueeze(dim=1)
         atts_llama = atts_llama.unsqueeze(dim=1)
         '''
-        return inputs_llama, atts_llama, query_output.last_hidden_state
+        return inputs_llama, atts_llama
         
     def prompt_wrap(self, img_embeds, atts_img, prompt):
         if prompt:
@@ -453,7 +436,7 @@ class MiniGPT4Ascl(Blip2Base):
         bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
         
-        img_embeds, atts_img, query_output = self.encode_img(image, query_true=False)
+        img_embeds, atts_img = self.encode_img(image)
         atts_img = atts_img.to(image.device)
         if hasattr(samples, 'question_split'):  # VQA dataset
             print('VQA Batch')
@@ -487,23 +470,23 @@ class MiniGPT4Ascl(Blip2Base):
                     return_dict=True,
                     is_decoder=False
                 )
-        
+
         txt_embeds = txt_output.last_hidden_state[:,0,:]
         print('txt_embeds.shape', txt_embeds.shape)
 
-        img_feat = F.normalize(query_output.mean(dim=0), dim=-1)
+        img_feat = F.normalize(img_embeds.mean(dim=0), dim=-1)
         txt_feat = F.normalize(txt_embeds, dim=-1)
         
         ###=======MoCo=========###
         with torch.no_grad():
             self._momentum_update()
-            _, _, query_output_m = self.encode_img(image)
+            img_embeds_m = self.encode_img(image)
             #img_embeds_m = img_embeds_m.view(bs, ds, num_patch, embed_dim)
             #img_embeds_m = img_embeds_m + self.interpolate_pos_encoding(self.z_embed_m, img_embeds_m)
 
             #img_embeds_m = img_embeds_m.view(bs, -1, embed_dim)
-            print('query_output_m.shape', query_output_m.shape)
-            image_feat_m = F.normalize(query_output_m.mean(dim=1), dim=-1)
+            
+            image_feat_m = F.normalize(img_embeds_m.mean(dim=1), dim=-1)
             print('txt_tokens.attention_mask', txt_tokens.attention_mask)
             text_output_m = self.Qformer_m.bert(
                     input_ids= txt_tokens.input_ids,
@@ -526,7 +509,7 @@ class MiniGPT4Ascl(Blip2Base):
             print('sim_t2i_m.shape', sim_t2i_m.shape)
             sim_targets = torch.zeros(sim_i2t_m.size()).to(image[0].device)
             sim_targets.fill_diagonal_(1)
-
+            
             sim_i2t_targets = self.alphas * F.softmax(sim_i2t_m, dim=1) + (1 - self.alphas) * sim_targets
             sim_t2i_targets = self.alphas * F.softmax(sim_t2i_m, dim=1) + (1 - self.alphas) * sim_targets
 
@@ -543,6 +526,7 @@ class MiniGPT4Ascl(Blip2Base):
 
         loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1) * sim_i2t_targets, dim=1).mean()
         loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1) * sim_t2i_targets, dim=1).mean()
+
 
         sim_i2i = img_feat @ image_feat_all / self.temp
         sim_t2t = txt_feat @ text_feat_all / self.temp
@@ -638,7 +622,6 @@ class MiniGPT4Ascl(Blip2Base):
         temp = cfg.get("temp", 0.07)
         alpha = cfg.get("alpha", 0.04)
         momentum = cfg.get("momentum", 0.995)
-        queue_size = cfg.get("queue_size", 32768)
 
         model = cls(
             vit_model=vit_model,

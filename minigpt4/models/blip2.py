@@ -17,6 +17,7 @@ import torch.nn.functional as F
 
 from minigpt4.models.model import CLIP
 import minigpt4.models.clip as clip
+import minigpt4.models.vision_transformer as vits
 
 
 import minigpt4.common.dist_utils as dist_utils
@@ -110,12 +111,19 @@ class Blip2Base(BaseModel):
     
     def init_DINO_encoder(cls, model, model_path, patch_size):
         if model in vits.__dict__.keys():
-            vision_encoder = vits.__dict__[args.arch](patch_size=patch_size)
+            vision_encoder = vits.__dict__[model](patch_size=patch_size)
         
         if model_path != None:
             #vision_encoder.load_state_dict(torch.load(model_path))
-            vision_encoder.backbone.load_state_dict(torch.load(model_path))
-    
+            state_dict = torch.load(model_path)
+            # remove `module.` prefix
+            state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+            # remove `backbone.` prefix induced by multicrop wrapper
+            state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+            vision_encoder.load_state_dict(state_dict, strict=False)
+
+        return vision_encoder
+
     def load_from_pretrained(self, url_or_filename):
         if is_url(url_or_filename):
             cached_file = download_cached_file(

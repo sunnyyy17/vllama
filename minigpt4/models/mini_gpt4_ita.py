@@ -93,9 +93,9 @@ class MiniGPT4Ita(Blip2Base):
         
         
         ###FOR CheXZero
+        '''
         print("CHECK UPDATE")
         self.visual_encoder = self.init_CheXzero_encoder(vit_path)
-        self.visual_encoder_m = self.init_CheXzero_encoder(vit_path)
         
         if freeze_vit:
             for name, param in self.visual_encoder.named_parameters():
@@ -109,11 +109,10 @@ class MiniGPT4Ita(Blip2Base):
             #self.ln_vision.train = disabled_train
             
             logging.info("freeze vision encoder")
-
+        '''    
         ###FOR DINO
-        '''
         self.visual_encoder =self.init_DINO_encoder(vit_model, vit_path, patch_size=16)
-
+        
         if freeze_vit:
             for name, param in self.visual_encoder.named_parameters():
                 param.requires_grad = False
@@ -121,8 +120,6 @@ class MiniGPT4Ita(Blip2Base):
         
         print('Loading VIT Done')
         
-
-        '''
         ###USING Q-Former
         print('Loading Q-Former')
         print('visual_encoder.num_features', self.visual_encoder.num_features)
@@ -248,10 +245,10 @@ class MiniGPT4Ita(Blip2Base):
         #self.vision_proj_m = nn.Linear(vision_width, embed_dim)
         #self.text_proj = nn.Linear(text_width, embed_dim)
         #self.text_proj_m = nn.Linear(text_width, embed_dim)
-        self.qform_proj_chz = nn.Linear(768, 1408).to(self.llama_model_device)
-        self.qform_proj_chz_m = nn.Linear(768, 1408).to(self.llama_model_device)
+        self.qform_proj_chz = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
+        #self.qform_proj_chz_m = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
         self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
-        self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        #self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
         #print('get device', self.qform_proj_chz.device)
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
@@ -265,15 +262,15 @@ class MiniGPT4Ita(Blip2Base):
         self.register_buffer("image_queue", torch.randn(self.embed_dim, self.queue_size))
         self.register_buffer("text_queue", torch.randn(self.embed_dim, self.queue_size))
         self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
-
+        
         self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
         self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
 
 
         self.model_pairs = [[self.Qformer, self.Qformer_m],
                             #[self.vision_proj, self.vision_proj_m],
-                            [self.qform_proj_chz, self.qform_proj_chz_m],
-                            [self.llama_proj_chz, self.llama_proj_chz_m],
+                            #[self.qform_proj_chz, self.qform_proj_chz_m],
+                            #[self.llama_proj_chz, self.llama_proj_chz_m],
                            # [self.text_proj, self.text_proj_m],
                             #[self.z_embed, self.z_embed_m],
                             # [self.zt_embed, self.zt_embed_m],
@@ -394,7 +391,23 @@ class MiniGPT4Ita(Blip2Base):
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
             #print("query_tokens.shape", query_tokens.shape)
+            query_output = self.Qformer.bert(
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=image_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
+            inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
+            #print("inputs_llama.shape", inputs_llama.shape)
+            atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
             
+            query_output_m = self.Qformer_m.bert(
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=image_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
+            '''
             if query_true:
                 query_output = self.Qformer.bert(
                     query_embeds=query_tokens,
@@ -413,10 +426,10 @@ class MiniGPT4Ita(Blip2Base):
                     return_dict=True,
                 )
                 
-                inputs_llama = self.llama_proj_chz_m(query_output.last_hidden_state)
+                inputs_llama = None #self.llama_proj_chz_m(query_output.last_hidden_state)
                 #print("inputs_llama.shape", inputs_llama.shape)
-                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
-            
+                atts_llama = None #torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
+            '''
             #print("query_output.shape", query_output.shape)
             #print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
             #print('query max, min', query_output.last_hidden_state.max(), query_output.last_hidden_state.min())
@@ -433,7 +446,7 @@ class MiniGPT4Ita(Blip2Base):
         inputs_llama = inputs_llama.unsqueeze(dim=1)
         atts_llama = atts_llama.unsqueeze(dim=1)
         '''
-        return inputs_llama, atts_llama, query_output.last_hidden_state
+        return inputs_llama, atts_llama, query_output.last_hidden_state, query_output_m.last_hidden_state
         
     def prompt_wrap(self, img_embeds, atts_img, prompt):
         if prompt:
@@ -467,7 +480,7 @@ class MiniGPT4Ita(Blip2Base):
         bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
         
-        img_embeds, atts_img, query_output = self.encode_img(image)
+        img_embeds, atts_img, query_output, query_output_m = self.encode_img(image, query_true=True)
         atts_img = atts_img.to(image.device)
         if hasattr(samples, 'question_split'):  # VQA dataset
             print('VQA Batch')
@@ -504,19 +517,20 @@ class MiniGPT4Ita(Blip2Base):
 
         txt_embeds = txt_output.last_hidden_state[:,0,:]
         print('txt_embeds.shape', txt_embeds.shape)
-
-        img_feat = F.normalize(query_output.mean(dim=0), dim=-1)
+        print('query_output.shape', query_output.shape)
+        img_feat = F.normalize(query_output.mean(dim=1), dim=-1)
         txt_feat = F.normalize(txt_embeds, dim=-1)
         
         ###=======MoCo=========###
         with torch.no_grad():
             self._momentum_update()
-            _, _, query_output_m = self.encode_img(image)
+            #_, _, query_output_m = self.encode_img(image, query_true=False)
             #img_embeds_m = img_embeds_m.view(bs, ds, num_patch, embed_dim)
             #img_embeds_m = img_embeds_m + self.interpolate_pos_encoding(self.z_embed_m, img_embeds_m)
 
             #img_embeds_m = img_embeds_m.view(bs, -1, embed_dim)
-            #print('query_output_m.shape', query_output_m.shape)
+            print('query_output_m.shape', query_output_m.shape)
+        
             image_feat_m = F.normalize(query_output_m.mean(dim=1), dim=-1)
             #print('txt_tokens.attention_mask', txt_tokens.attention_mask)
             text_output_m = self.Qformer_m.bert(
@@ -624,8 +638,9 @@ class MiniGPT4Ita(Blip2Base):
                 labels=targets,
             )
 
-            loss = outputs.loss + loss_ita
-
+            lm_loss = outputs.loss
+            q_loss = loss_ita
+            loss = lm_loss + q_loss
         return {"loss": loss}
     
     @classmethod

@@ -59,7 +59,7 @@ def pre_caption(caption, max_words):
     caption = ' '.join(caption_words[:max_words])
     return caption
 
-
+                                                                                                  
 class CTDataset(object):
     def __init__(self, csv_dir, data_dir, z_length, image_res, is_train=True, is_val=False, is_large=False):
 
@@ -319,7 +319,7 @@ class rectalMRIDataset(object):
         with open(self.txt_path, 'r') as json_reader:
             self.mri_label = json.load(json_reader)
         
-        self.all_subject = sorted(glob.glob(self.img_path + '/**/NIfTI/*.tar.gz'))
+        self.all_subject = sorted(glob.glob(self.img_path + '/**/*.tar.gz'))
         
         # split train/val/test set (not depending on the seed) -> fixed division
         if self.is_train:
@@ -370,11 +370,14 @@ class rectalMRIDataset(object):
     def __getitem__(self, idx):
         
         subject = self.subject_list[idx]
-        patient_ID = subject.split('/')[-3]
+        patient_ID = subject.split('/')[-2]
+        patient_ID_key = patient_ID[:-11]
+        '''
         if patient_ID[-2:] == 'MR':
-            patient_ID_key = patient_ID[:-5]
+            patient_ID_key = patient_ID[:-11]
         else:
             patient_ID_key = patient_ID
+        '''
         #patient_ID_key = patient_ID[:-4]
         #ID = subject.split('/')[-1]
         
