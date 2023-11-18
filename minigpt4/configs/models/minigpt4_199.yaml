@@ -1,5 +1,5 @@
 model:
-  arch: mini_gpt4_ascl
+  arch: mini_gpt4_ita
 
   # vit encoder
   image_size: 224

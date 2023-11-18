@@ -14,12 +14,12 @@ class rectalMRI3dbuilder(BaseDatasetBuilder):
     DATASET_CONFIG_DICT = {"default": "configs/datasets/rectal-mri-3d/defaults.yaml"}
     def build(self):
         build_info = self.config.build_info
-
+        
         datasets = dict()
         split = "train"
         dataset_cls = self.train_dataset_cls
         datasets[split] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=True)
-        
+
         return datasets
 
 @registry.register_builder("ct-seg-3d")

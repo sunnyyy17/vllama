@@ -12,6 +12,7 @@ from omegaconf import OmegaConf
 from minigpt4.common.registry import registry
 from minigpt4.models.base_model import BaseModel
 from minigpt4.models.blip2 import Blip2Base
+from minigpt4.models.mini_gpt4_ita_frozen import MiniGPT4ItaFrozen 
 from minigpt4.models.mini_gpt4_ita import MiniGPT4Ita
 from minigpt4.models.mini_gpt4_orig import MiniGPT4Orig
 from minigpt4.models.mini_gpt4 import MiniGPT4
@@ -24,6 +25,7 @@ __all__ = [
     "load_model",
     "BaseModel",
     "Blip2Base",
+    "MiniGPT4ItaFrozen",
     "MiniGPT4Ita",
     "MiniGPT4Orig",
     "MiniGPT4",

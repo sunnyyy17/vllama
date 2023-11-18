@@ -37,8 +37,8 @@ def concat_all_gather(tensor):
 
 
 
-@registry.register_model("mini_gpt4_ita")
-class MiniGPT4Ita(Blip2Base):
+@registry.register_model("mini_gpt4_ita_frozen")
+class MiniGPT4ItaFrozen(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.
     """
@@ -213,7 +213,6 @@ class MiniGPT4Ita(Blip2Base):
         #print(self.llama_model.model)
         #self.llama_model.model.model.embed_tokens.weight.requires_grad = False
         self.llama_model.model.embed_tokens.weight.requires_grad = False
-        #self.llama_model.embed_tokens.weight.requires_grad = False
         
         print('Loading LLAMA Done')
 
@@ -615,12 +614,12 @@ class MiniGPT4Ita(Blip2Base):
         bos = torch.ones([batch_size, 1],
                          dtype=to_regress_tokens.input_ids.dtype,
                          device=to_regress_tokens.input_ids.device) * self.llama_tokenizer.bos_token_id
+        #bos_embeds = self.llama_model.model.model.embed_tokens(bos)
         bos_embeds = self.llama_model.model.embed_tokens(bos)
-        #bos_embeds = self.llama_model.embed_tokens(bos)
         atts_bos = atts_img[:, :1]
         
+        #to_regress_embeds = self.llama_model.model.model.embed_tokens(to_regress_tokens.input_ids)
         to_regress_embeds = self.llama_model.model.embed_tokens(to_regress_tokens.input_ids)
-        #to_regress_embeds = self.llama_model.embed_tokens(to_regress_tokens.input_ids)
 
         to_regress_embeds = to_regress_embeds.repeat(img_embeds.shape[0]//to_regress_embeds.shape[0], 1, 1)
         

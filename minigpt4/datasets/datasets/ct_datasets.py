@@ -62,13 +62,13 @@ def pre_caption(caption, max_words):
                                                                                                   
 class CTDataset(object):
     def __init__(self, csv_dir, data_dir, z_length, image_res, is_train=True, is_val=False, is_large=False):
-
+        
         self.csv = pd.read_csv(csv_dir)
         self.data_dir = data_dir
         self.z_length = z_length
         self.image_res = image_res
         self.all_subject = sorted(glob.glob(self.data_dir + '/*'))
-
+        
         # split train/val/test set (not depending on the seed) -> fixed division
         if is_train:
             self.subject_list = self.all_subject[:int(len(self.all_subject)*0.90)]  # 90%
@@ -306,9 +306,9 @@ class CTSegDataset(data.Dataset):
         
         return img, txt
 
-class rectalMRIDataset(object):
+class rectalMRIDataset(data.Dataset):
     def __init__(self, img_path, txt_path, transform=None, is_train=True):
-        
+        super().__init__()
         #self.args = args
         #self.config = config
         #self.config
@@ -319,8 +319,8 @@ class rectalMRIDataset(object):
         with open(self.txt_path, 'r') as json_reader:
             self.mri_label = json.load(json_reader)
         
-        self.all_subject = sorted(glob.glob(self.img_path + '/**/*.tar.gz'))
-        
+        self.all_subject = sorted(glob.glob(self.img_path + '/**/*.nii.gz'))
+        #print(self.all_subject)
         # split train/val/test set (not depending on the seed) -> fixed division
         if self.is_train:
             self.subject_list = self.all_subject[:int(len(self.all_subject)*0.95)]  # 90%
@@ -401,7 +401,7 @@ class rectalMRIDataset(object):
             h_t = 0
             w_t = 0
 
-        preproc_frames = np.asarray(volume.dataobj)[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, sampled_ind]
+        preproc_frames = np.asarray(volume.dataobj)[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, :]
         preproc_frames = torch.from_numpy(preproc_frames)
         preproc_frames = preproc_frames.permute(2, 0, 1)
         
