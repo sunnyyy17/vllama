@@ -372,12 +372,7 @@ class rectalMRIDataset(data.Dataset):
         subject = self.subject_list[idx]
         patient_ID = subject.split('/')[-2]
         patient_ID_key = patient_ID[:-11]
-        '''
-        if patient_ID[-2:] == 'MR':
-            patient_ID_key = patient_ID[:-11]
-        else:
-            patient_ID_key = patient_ID
-        '''
+
         #patient_ID_key = patient_ID[:-4]
         #ID = subject.split('/')[-1]
         
@@ -387,10 +382,12 @@ class rectalMRIDataset(data.Dataset):
         #volume = np.load(subject + './OBL AXL FSE T2_image.nii.gz')
         #volume = np.load(subject + '/3d.npy')
         #print('Volume shape: ', volume.shape)
+        
         caption = self.mri_label[patient_ID_key]
+        
         # caption = self.df[subject]
         caption = pre_caption(caption, max_words=200)
-
+        
         # Center crop and translation
         if self.is_train:
             d = random.randint(0, 10)
@@ -402,6 +399,7 @@ class rectalMRIDataset(data.Dataset):
             w_t = 0
 
         preproc_frames = np.asarray(volume.dataobj)[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, :]
+        preproc_frames = preproc_frames.astype(np.float32)
         preproc_frames = torch.from_numpy(preproc_frames)
         preproc_frames = preproc_frames.permute(2, 0, 1)
         
