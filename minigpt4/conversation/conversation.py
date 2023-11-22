@@ -169,7 +169,7 @@ class Chat:
         output_text = output_text.split('Assistant:')[-1].strip()
         conv.messages[-1][1] = output_text
         return output_text, output_token.cpu().numpy()
-
+            
     def upload_img(self, image, conv, img_list):
         if isinstance(image, str):  # is a image path
             raw_image = Image.open(image).convert('RGB')
@@ -186,9 +186,9 @@ class Chat:
         img_list.append(image_emb)
         conv.append_message(conv.roles[0], "<Img><ImageHere></Img>")
         msg = "Received."
-        # self.conv.append_message(self.conv.roles[1], msg)
+        # self.conv.append_messge(self.conv.roles[1], msg)
         return msg
-
+    
     def get_context_emb(self, conv, img_list):
         prompt = conv.get_prompt()
         prompt_segs = prompt.split('<ImageHere>')
@@ -203,5 +203,5 @@ class Chat:
         mixed_embs = [emb for pair in zip(seg_embs[:-1], img_list) for emb in pair] + [seg_embs[-1]]
         mixed_embs = torch.cat(mixed_embs, dim=1)
         return mixed_embs
-
+        
 

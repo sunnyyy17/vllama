@@ -476,8 +476,8 @@ class MiniGPT4ItaFrozen(Blip2Base):
         #print(samples[0].shape, samples[1])
         image = samples[0]
         text = samples[1]
-        #bs, ds, c, h, w = image.size()
-        bs, c, h, w = image.size()
+        bs, ds, c, h, w = image.size()
+        #bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
         
         img_embeds, atts_img, query_output, query_output_m = self.encode_img(image, query_true=True)

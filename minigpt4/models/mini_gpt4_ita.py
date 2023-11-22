@@ -94,9 +94,9 @@ class MiniGPT4Ita(Blip2Base):
         
         ###FOR CheXZero
         print("CHECK UPDATE")
-        self.visual_encoder = self.init_CheXzero_encoder(vit_path)
-        self.visual_encoder_m = self.init_CheXzero_encoder(vit_path)
-        
+        #self.visual_encoder = self.init_CheXzero_encoder(vit_path)
+        #self.visual_encoder_m = self.init_CheXzero_encoder(vit_path)
+        '''
         if freeze_vit:
             for name, param in self.visual_encoder.named_parameters():
                 param.requires_grad = False
@@ -109,9 +109,9 @@ class MiniGPT4Ita(Blip2Base):
             #self.ln_vision.train = disabled_train
             
             logging.info("freeze vision encoder")
-
-        ###FOR DINO
         '''
+        ###FOR DINO
+        
         self.visual_encoder =self.init_DINO_encoder(vit_model, vit_path, patch_size=16)
 
         if freeze_vit:
@@ -121,8 +121,6 @@ class MiniGPT4Ita(Blip2Base):
         
         print('Loading VIT Done')
         
-
-        '''
         ###USING Q-Former
         print('Loading Q-Former')
         print('visual_encoder.num_features', self.visual_encoder.num_features)
@@ -146,7 +144,7 @@ class MiniGPT4Ita(Blip2Base):
         '''
         self.load_from_pretrained(url_or_filename=q_former_model)
         self.Qformer = self.Qformer.train()
-        
+            
         
         if freeze_qformer:
             for layer in self.Qformer.bert.encoder.layer:
@@ -249,10 +247,15 @@ class MiniGPT4Ita(Blip2Base):
         #self.vision_proj_m = nn.Linear(vision_width, embed_dim)
         #self.text_proj = nn.Linear(text_width, embed_dim)
         #self.text_proj_m = nn.Linear(text_width, embed_dim)
-        self.qform_proj_chz = nn.Linear(768, 1408).to(self.llama_model_device)
-        self.qform_proj_chz_m = nn.Linear(768, 1408).to(self.llama_model_device)
+        #self.qform_proj_chz = nn.Linear(768, 1408).to(self.llama_model_device)
+        #self.qform_proj_chz_m = nn.Linear(768, 1408).to(self.llama_model_device)
+        #self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        #self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        self.qform_proj_chz = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
+        #self.qform_proj_chz_m = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
         self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
-        self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        #self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        
         #print('get device', self.qform_proj_chz.device)
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
@@ -273,8 +276,8 @@ class MiniGPT4Ita(Blip2Base):
 
         self.model_pairs = [[self.Qformer, self.Qformer_m],
                             #[self.vision_proj, self.vision_proj_m],
-                            [self.qform_proj_chz, self.qform_proj_chz_m],
-                            [self.llama_proj_chz, self.llama_proj_chz_m],
+                            #[self.qform_proj_chz, self.qform_proj_chz_m],
+                            #[self.llama_proj_chz, self.llama_proj_chz_m],
                            # [self.text_proj, self.text_proj_m],
                             #[self.z_embed, self.z_embed_m],
                             # [self.zt_embed, self.zt_embed_m],
@@ -464,8 +467,8 @@ class MiniGPT4Ita(Blip2Base):
         #print(samples[0].shape, samples[1])
         image = samples[0]
         text = samples[1]
-        #bs, ds, c, h, w = image.size()
-        bs, c, h, w = image.size()
+        bs, ds, c, h, w = image.size()
+        #bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
         
         img_embeds, atts_img, query_output = self.encode_img(image)
@@ -504,7 +507,7 @@ class MiniGPT4Ita(Blip2Base):
                 )
 
         txt_embeds = txt_output.last_hidden_state[:,0,:]
-        print('txt_embeds.shape', txt_embeds.shape)
+        #print('txt_embeds.shape', txt_embeds.shape)
 
         img_feat = F.normalize(query_output.mean(dim=0), dim=-1)
         txt_feat = F.normalize(txt_embeds, dim=-1)
@@ -535,13 +538,13 @@ class MiniGPT4Ita(Blip2Base):
             text_feat_all = torch.cat([text_feat_m.t(), self.text_queue.clone().detach()], dim=1)
             
             # image-text alignment (diagonal)
-            print('image_feat_m, image_feat_all', image_feat_m.shape)
-            print('image_feat_all', image_feat_all)
-            print('image_feat_all', image_feat_all.shape)
+            #print('image_feat_m, image_feat_all', image_feat_m.shape)
+            #print('image_feat_all', image_feat_all)
+            #print('image_feat_all', image_feat_all.shape)
             sim_i2t_m = image_feat_m @ text_feat_all / self.temp
             sim_t2i_m = text_feat_m @ image_feat_all / self.temp
-            print('sim_i2t_m.shape', sim_i2t_m.shape)
-            print('sim_t2i_m.shape', sim_t2i_m.shape)
+            #print('sim_i2t_m.shape', sim_i2t_m.shape)
+            #print('sim_t2i_m.shape', sim_t2i_m.shape)
             sim_targets = torch.zeros(sim_i2t_m.size()).to(image[0].device)
             sim_targets.fill_diagonal_(1)
 
@@ -551,8 +554,8 @@ class MiniGPT4Ita(Blip2Base):
             # intramodal alignment (diagonal)
             sim_i2i_m = image_feat_m @ image_feat_all / self.temp
             sim_t2t_m = text_feat_m @ text_feat_all / self.temp
-            print('sim_i2i_m.shape', sim_i2i_m.shape)
-            print('sim_t2t_m.shape', sim_t2t_m.shape)
+            #print('sim_i2i_m.shape', sim_i2i_m.shape)
+            #print('sim_t2t_m.shape', sim_t2t_m.shape)
             sim_i2i_targets = self.alphas * F.softmax(sim_i2i_m, dim=1) + (1 - self.alphas) * sim_targets
             sim_t2t_targets = self.alphas * F.softmax(sim_t2t_m, dim=1) + (1 - self.alphas) * sim_targets
 

@@ -256,7 +256,7 @@ class RunnerBase:
                 else self.config.run_cfg.batch_size_eval
                 for split in split_names
             ]
-
+        
             collate_fns = []
             for dataset in datasets:
                 if isinstance(dataset, tuple) or isinstance(dataset, list):
@@ -377,7 +377,7 @@ class RunnerBase:
                 logging.info("Start training")
                 train_stats = self.train_epoch(cur_epoch)
                 self.log_stats(split_name="train", stats=train_stats)
-
+            
             # evaluation phase
             if len(self.valid_splits) > 0:
                 for split_name in self.valid_splits:

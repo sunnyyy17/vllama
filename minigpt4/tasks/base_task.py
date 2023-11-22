@@ -72,9 +72,11 @@ class BaseTask:
         loss = model(samples)["loss"]
         #print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
         print('loss:', loss)
-        return loss
+        return loss 
 
     def valid_step(self, model, samples):
+
+        
         raise NotImplementedError
     
     def before_evaluation(self, model, dataset, **kwargs):
