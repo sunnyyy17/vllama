@@ -1,4 +1,5 @@
-`#import pydicom
+#import pydicom
+import os
 import torch
 import torch.nn as nn
 #import torchvision.transforms as transforms
@@ -429,6 +430,13 @@ class rectalMRIDataset(data.Dataset):
         preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
                                                               size=(224, 224))
 
+        print('preproc_frames_cat.shape', preproc_frames_cat.shape)
+        print('subject', subject)
+        dir_path = subject.split('/')
+        output_path = os.path.join(*dir_path[:-1])
+        output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
+        torch.save(preproc_frames_cat, output_file_path)
+        
         return preproc_frames_cat, caption, patient_ID
 
 class ImgEmbedDataset(data.Dataset):
