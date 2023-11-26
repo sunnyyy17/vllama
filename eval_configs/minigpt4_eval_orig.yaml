@@ -1,5 +1,5 @@
 model:
-  arch: mini_gpt4_ita_frozen
+  arch: mini_gpt4_ita
   model_type: pretrain_vicuna
   freeze_vit: True
   freeze_qformer: True
@@ -8,9 +8,9 @@ model:
   low_resource: True
   prompt_path: "prompts/alignment.txt"
   prompt_template: '###Human: {} ###Assistant: '
-  ckpt: '/scratch/slurm-user3/changsun/minigpt4/minigpt4/output/minigpt4_stage1_pretrain/rectal-pmcllama-frozen/checkpoint_2.pth' #'/path/to/pretrained/ckpt/'
+  ckpt: '/scratch/slurm-user3/changsun/minigpt4/minigpt4/output/minigpt4_stage1_pretrain/rectal-dino-pmcllama-lora/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
   vit_path: '/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_imgnet_pretrained/checkpoint0095.pth'
-  lora_r: 0
+  lora_r: 32
   lora_target_modules: ["q_proj","v_proj"]
   lora_alpha: 16
   lora_dropout: 0.05

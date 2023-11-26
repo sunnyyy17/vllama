@@ -144,7 +144,7 @@ class MiniGPT4Ita(Blip2Base):
         '''
         self.load_from_pretrained(url_or_filename=q_former_model)
         self.Qformer = self.Qformer.train()
-            
+
         
         if freeze_qformer:
             for layer in self.Qformer.bert.encoder.layer:
@@ -272,7 +272,7 @@ class MiniGPT4Ita(Blip2Base):
 
         self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
         self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
-
+        
 
         self.model_pairs = [[self.Qformer, self.Qformer_m],
                             #[self.vision_proj, self.vision_proj_m],
@@ -374,8 +374,10 @@ class MiniGPT4Ita(Blip2Base):
                 slice = kornia.geometry.transform.resize(slice, size=(224, 224))
                 slice = torch.unsqueeze(slice, dim=0)
                 slice_image = torch.cat((slice, slice, slice), dim=0)
-                slice_image = torch.unsqueeze(slice_image, dim=0)
+                slice_image = torch.unsqueeze(slice, dim=0)
+                print('slice_image.shape', slice_image.shape)
                 slice_embeds = self.visual_encoder(slice_image).to(device)
+                
                 #print('slice embeds.shape', slice_embeds.shape)
                 if idx == 0:
                     image_embeds = slice_embeds

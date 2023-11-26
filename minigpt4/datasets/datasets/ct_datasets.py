@@ -177,6 +177,7 @@ class CTDataset(object):
             h_t = 0
             w_t = 0
 
+        
         preproc_frames = volume[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, :]
         #print('volume shape', preproc_frames.shape)
         #print('volume min, max', preproc_frames.min(), preproc_frames.max())
@@ -329,40 +330,7 @@ class rectalMRIDataset(data.Dataset):
             self.subject_list = self.all_subject[int(len(self.all_subject)*0.95):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
-        '''
-        if is_train:
-            self.weights = []
-            for subject in self.subject_list:
-                weight = 0.5
-                self.weights.append(weight)
-            self.weights = np.array(self.weights)
-            self.weights = self.weights / self.weights.sum()
-        '''
-        '''
-        if is_train:
-            self.weights = []
-            for subject in self.subject_list:
-                #patient_ID = subject.split('/')[-1]
-                #patient_ID_key = patient_ID[:-4]
-                ID = subject.split('/')[-1]
-                d_frame = self.csv.loc[self.csv.path == 'rsna/train/{}'.format(ID)]
-                EDH = int(d_frame['epidural'].values)
-                IPH = int(d_frame['intraparenchymal'].values)
-                IVH = int(d_frame['intraventricular'].values)
-                SAH = int(d_frame['subarachnoid'].values)
-                SDH = int(d_frame['subdural'].values)
-                ANY = int(d_frame['any'].values)
 
-                all = EDH + IPH + IVH + SAH + SDH + ANY
-
-                if all == 0:
-                    weight = 0.1
-                else:
-                    weight = 0.9
-                self.weights.append(weight)
-            self.weights = np.array(self.weights)
-            self.weights = self.weights / self.weights.sum()
-        '''
         print(len(self.subject_list))
 
     def __len__(self):
@@ -429,7 +397,8 @@ class rectalMRIDataset(data.Dataset):
         # preproc_frames_cat = torch.cat([preproc_frames_brain, preproc_frames_subdural, preproc_frames_bone], dim=1)
         preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
                                                               size=(224, 224))
-
+        
+        print('here')
         print('preproc_frames_cat.shape', preproc_frames_cat.shape)
         print('subject', subject)
         dir_path = subject.split('/')

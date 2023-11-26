@@ -21,6 +21,7 @@ from minigpt4.models.img_emb import ImageWrapEmbeddings
 from minigpt4.processors.base_processor import BaseProcessor
 
 
+
 __all__ = [
     "load_model",
     "BaseModel",
