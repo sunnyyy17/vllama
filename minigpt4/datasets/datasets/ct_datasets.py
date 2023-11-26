@@ -398,6 +398,108 @@ class rectalMRIDataset(data.Dataset):
         preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
                                                               size=(224, 224))
         
+        #print('here')
+        print('preproc_frames_cat.shape', preproc_frames_cat.shape)
+        #print('subject', subject)
+        ##dir_path = subject.split('/')
+        #output_path = os.path.join(*dir_path[:-1])
+        #output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
+        #torch.save(preproc_frames_cat, output_file_path)
+        
+        return preproc_frames_cat, caption, patient_ID
+
+class brainMRIDataset(data.Dataset):
+    def __init__(self, img_path, txt_path, transform=None, is_train=True):
+        super().__init__()
+        #self.args = args
+        #self.config = config
+        #self.config
+        self.img_path = img_path
+        self.txt_path = txt_path
+        self.is_train = is_train
+        self.mri_label = pd.read_csv(self.txt_path)
+        #with open(self.txt_path, 'r') as json_reader:
+            #self.mri_label = json.load(json_reader)
+        
+        self.all_subject = sorted(glob.glob(self.img_path + '/*.npy'))
+        #print(self.all_subject)
+        # split train/val/test set (not depending on the seed) -> fixed division
+        if self.is_train:
+            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.90)]  # 90%
+        else:
+            self.subject_list = self.all_subject[int(len(self.all_subject)*0.90):]  # 6%
+        
+        self.subject_list = sorted(self.subject_list)
+
+        print(len(self.subject_list))
+
+    def __len__(self):
+        return len(self.subject_list)
+
+    def __getitem__(self, idx):
+        
+        subject = self.subject_list[idx]
+        patient_ID = subject.split('/')[-1]
+        patient_ID_key = patient_ID[:-13]
+
+        #patient_ID_key = patient_ID[:-4]
+        #ID = subject.split('/')[-1]
+        
+        #TEST EACH MRI VOLUME
+        #volume_list = sorted(glob.glob(subject+'/*'))
+        volume = np.load(subject)  
+        #volume = np.load(subject + './OBL AXL FSE T2_image.nii.gz')
+        #volume = np.load(subject + '/3d.npy')
+        print('Volume shape: ', volume.shape)
+        
+        index = self.mri_label.index[self.mri_label['Patient'] == patient_ID_key]
+        caption = self.mri_label[index, 'report']
+        #caption = self.mri_label[patient_ID_key]
+        # caption = self.df[subject]
+        caption = pre_caption(caption, max_words=200)
+        
+        # Center crop and translation
+        if self.is_train:
+            d = random.randint(0, 10)
+            h_t = random.randint(-d, d)
+            w_t = random.randint(-d, d)
+        else:
+            d = 5
+            h_t = 0
+            w_t = 0
+
+        preproc_frames = volume[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, :]
+        preproc_frames = preproc_frames.astype(np.float32)
+        preproc_frames = torch.from_numpy(preproc_frames)
+        preproc_frames = preproc_frames.permute(2, 0, 1)
+        
+        # Brain window
+        preproc_frames_brain = preproc_frames.clone()
+        preproc_frames_brain[preproc_frames_brain > 80] = 80
+        preproc_frames_brain[preproc_frames_brain < 0] = 0
+        preproc_frames_brain = (preproc_frames_brain - preproc_frames_brain.min()) / (preproc_frames_brain.max() - preproc_frames_brain.min())
+        preproc_frames_brain = preproc_frames_brain.unsqueeze(1)
+        
+        # Subdural window
+        preproc_frames_subdural = preproc_frames.clone()
+        preproc_frames_subdural[preproc_frames_subdural > 170] = 170
+        preproc_frames_subdural[preproc_frames_subdural < -10] = -10
+        preproc_frames_subdural = (preproc_frames_subdural - preproc_frames_subdural.min()) / (preproc_frames_subdural.max() - preproc_frames_subdural.min())
+        preproc_frames_subdural = preproc_frames_subdural.unsqueeze(1)
+        
+        # Bone window
+        preproc_frames_bone = preproc_frames.clone().float()
+        preproc_frames_bone[preproc_frames_bone > 1500] = 1500
+        preproc_frames_bone[preproc_frames_bone < -500] = -500
+        preproc_frames_bone = (preproc_frames_bone - preproc_frames_bone.min()) / (preproc_frames_bone.max() - preproc_frames_bone.min())
+        preproc_frames_bone = preproc_frames_bone.unsqueeze(1)
+
+        preproc_frames_cat = torch.cat([preproc_frames_brain, preproc_frames_brain, preproc_frames_brain], dim=1)
+        # preproc_frames_cat = torch.cat([preproc_frames_brain, preproc_frames_subdural, preproc_frames_bone], dim=1)
+        preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
+                                                              size=(224, 224))
+        
+        '''
         print('here')
         print('preproc_frames_cat.shape', preproc_frames_cat.shape)
         print('subject', subject)
@@ -405,7 +507,7 @@ class rectalMRIDataset(data.Dataset):
         output_path = os.path.join(*dir_path[:-1])
         output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
         torch.save(preproc_frames_cat, output_file_path)
-        
+        '''
         return preproc_frames_cat, caption, patient_ID
 
 class ImgEmbedDataset(data.Dataset):

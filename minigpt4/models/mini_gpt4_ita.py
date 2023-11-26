@@ -22,6 +22,7 @@ from peft import (
 )
 
 
+
 @torch.no_grad()
 def concat_all_gather(tensor):
     """
@@ -368,9 +369,10 @@ class MiniGPT4Ita(Blip2Base):
             #print('image.shape', image.shape)
             #image_embeds = []
             #print(image )
+            '''
             for idx in range(image.shape[1]):
                 slice = image[0][idx]
-                #print('slice.shape', slice.shape)
+                print('slice.shape', slice.shape)
                 slice = kornia.geometry.transform.resize(slice, size=(224, 224))
                 slice = torch.unsqueeze(slice, dim=0)
                 slice_image = torch.cat((slice, slice, slice), dim=0)
@@ -382,7 +384,21 @@ class MiniGPT4Ita(Blip2Base):
                 if idx == 0:
                     image_embeds = slice_embeds
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
-            
+            '''
+            for idx in range(image.shape[0]):
+                slice = image[idx]
+                #print('slice.shape', slice.shape)
+                slice = kornia.geometry.transform.resize(slice, size=(224, 224))
+                #slice = torch.unsqueeze(slice, dim=0)
+                #slice_image = torch.cat((slice, slice, slice), dim=0)
+                slice_image = torch.unsqueeze(slice, dim=0)
+                #print('slice_image.shape', slice_image.shape)
+                slice_embeds = self.visual_encoder(slice_image).to(device)
+                
+                #print('slice embeds.shape', slice_embeds.shape)
+                if idx == 0:
+                    image_embeds = slice_embeds
+                image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
             #print('image_embeds.shape', image_embeds.shape)
             image_embeds = image_embeds.to(device)
             image_embeds = torch.unsqueeze(image_embeds, dim=0)
@@ -469,6 +485,8 @@ class MiniGPT4Ita(Blip2Base):
         #print(samples[0].shape, samples[1])
         image = samples[0]
         text = samples[1]
+        #print(image.shape)
+        #print(text)
         bs, ds, c, h, w = image.size()
         #bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)

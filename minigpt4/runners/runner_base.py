@@ -243,7 +243,7 @@ class RunnerBase:
                             num_records, split_name
                         )
                     )
-
+            
             # create dataloaders
             split_names = sorted(self.datasets.keys())
             
@@ -256,7 +256,7 @@ class RunnerBase:
                 else self.config.run_cfg.batch_size_eval
                 for split in split_names
             ]
-        
+
             collate_fns = []
             for dataset in datasets:
                 if isinstance(dataset, tuple) or isinstance(dataset, list):
