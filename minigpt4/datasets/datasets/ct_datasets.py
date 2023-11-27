@@ -367,8 +367,9 @@ class rectalMRIDataset(data.Dataset):
             h_t = 0
             w_t = 0
 
-        preproc_frames = np.asarray(volume.dataobj)[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, :]
+        preproc_frames = np.asarray(volume.dataobj)[h_t + d:h_t + 224+d, w_t + d:w_t + 224+d, :]
         preproc_frames = preproc_frames.astype(np.float32)
+        print(preproc_frames.shape)
         preproc_frames = torch.from_numpy(preproc_frames)
         preproc_frames = preproc_frames.permute(2, 0, 1)
         
@@ -450,10 +451,10 @@ class brainMRIDataset(data.Dataset):
         volume = np.load(subject)  
         #volume = np.load(subject + './OBL AXL FSE T2_image.nii.gz')
         #volume = np.load(subject + '/3d.npy')
-        print('Volume shape: ', volume.shape)
+        #print('Volume shape: ', volume.shape)
         
         index = self.mri_label.index[self.mri_label['Patient'] == patient_ID_key]
-        caption = self.mri_label[index, 'report']
+        caption = self.mri_label.at[index[0], 'report']
         #caption = self.mri_label[patient_ID_key]
         # caption = self.df[subject]
         caption = pre_caption(caption, max_words=200)
@@ -468,27 +469,28 @@ class brainMRIDataset(data.Dataset):
             h_t = 0
             w_t = 0
 
-        preproc_frames = volume[h_t + d:h_t + 224-d, w_t + d:w_t + 224-d, :]
+        preproc_frames = volume[:, h_t + d:h_t + 224+d, w_t + d:w_t + 224+d, :]
         preproc_frames = preproc_frames.astype(np.float32)
         preproc_frames = torch.from_numpy(preproc_frames)
-        preproc_frames = preproc_frames.permute(2, 0, 1)
+        #print('preproc_frames', preproc_frames.shape)
+        preproc_frames = preproc_frames.permute(0, 3, 1, 2)
         
         # Brain window
-        preproc_frames_brain = preproc_frames.clone()
+        preproc_frames_brain = preproc_frames[:, 0, :, :].clone()
         preproc_frames_brain[preproc_frames_brain > 80] = 80
         preproc_frames_brain[preproc_frames_brain < 0] = 0
         preproc_frames_brain = (preproc_frames_brain - preproc_frames_brain.min()) / (preproc_frames_brain.max() - preproc_frames_brain.min())
         preproc_frames_brain = preproc_frames_brain.unsqueeze(1)
         
         # Subdural window
-        preproc_frames_subdural = preproc_frames.clone()
+        preproc_frames_subdural = preproc_frames[:, 1, :, :].clone()
         preproc_frames_subdural[preproc_frames_subdural > 170] = 170
         preproc_frames_subdural[preproc_frames_subdural < -10] = -10
         preproc_frames_subdural = (preproc_frames_subdural - preproc_frames_subdural.min()) / (preproc_frames_subdural.max() - preproc_frames_subdural.min())
         preproc_frames_subdural = preproc_frames_subdural.unsqueeze(1)
         
         # Bone window
-        preproc_frames_bone = preproc_frames.clone().float()
+        preproc_frames_bone = preproc_frames[:, 2, :, :].clone().float()
         preproc_frames_bone[preproc_frames_bone > 1500] = 1500
         preproc_frames_bone[preproc_frames_bone < -500] = -500
         preproc_frames_bone = (preproc_frames_bone - preproc_frames_bone.min()) / (preproc_frames_bone.max() - preproc_frames_bone.min())
@@ -499,15 +501,15 @@ class brainMRIDataset(data.Dataset):
         preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
                                                               size=(224, 224))
         
-        '''
-        print('here')
-        print('preproc_frames_cat.shape', preproc_frames_cat.shape)
-        print('subject', subject)
-        dir_path = subject.split('/')
-        output_path = os.path.join(*dir_path[:-1])
-        output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
-        torch.save(preproc_frames_cat, output_file_path)
-        '''
+        
+        #print('here')
+        #print('preproc_frames_cat.shape', preproc_frames_cat.shape)
+        ##print('subject', subject)
+        ##dir_path = subject.split('/')
+        #output_path = os.path.join(*dir_path[:-1])
+        #output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
+        #torch.save(preproc_frames_cat, output_file_path)
+        
         return preproc_frames_cat, caption, patient_ID
 
 class ImgEmbedDataset(data.Dataset):

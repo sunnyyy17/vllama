@@ -1,5 +1,5 @@
 datasets:
-  rectal-mri-3d:
+  brain-mri-3d:
     data_type: images
     build_info:
       transform: None
