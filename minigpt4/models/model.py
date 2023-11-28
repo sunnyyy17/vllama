@@ -43,7 +43,7 @@ class Bottleneck(nn.Module):
 
         self.conv2 = nn.Conv2d(planes, planes, 3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        
+
         self.avgpool = nn.AvgPool2d(stride) if stride > 1 else nn.Identity()
 
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, 1, bias=False)
@@ -64,7 +64,7 @@ class Bottleneck(nn.Module):
     def forward(self, x: torch.Tensor):
         identity = x
 
-        
+
         out = self.relu(self.bn1(self.conv1(x)))
         out = self.relu(self.bn2(self.conv2(out)))
         out = self.avgpool(out)
@@ -244,22 +244,25 @@ class VisualTransformer(nn.Module):
         x = self.conv1(x)  # shape = [*, width, grid, grid]
         x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
         x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
+        #print('x.shape', x.shape)
         x = torch.cat([self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device), x], dim=1)  # shape = [*, grid ** 2 + 1, width]
+        #print('x shape', x.shape)
+        #print('x pos shape', self.positional_embedding.to(x.dtype).shape)
         x = x + self.positional_embedding.to(x.dtype)
         x = self.ln_pre(x)
-        print('x before transformer permute', x.shape)
+        #print('x before transformer permute', x.shape)
         x = x.permute(1, 0, 2)  # NLD -> LND
-        print('x before transformer', x.shape)
+        #print('x before transformer', x.shape)
         x = self.transformer(x)
-        print('x after transformer', x.shape)
+        #print('x after transformer', x.shape)
         x = x.permute(1, 0, 2)  # LND -> NLD
-        print('x after transformer permute', x.shape)
-        x = self.ln_post(x[:, 0, :]) #Return CLS_TOKEN return only
+        #print('x after transformer permute', x.shape)
+        x = self.ln_post(x[:, 0, :])
         '''
         if self.proj is not None:
             x = x @ self.proj
         '''
-        print('Visual Trasnformer Forward x.shape', x.shape)
+        #print('Visual Trasnformer Forward x.shape', x.shape)
         return x
 
 
@@ -382,7 +385,7 @@ class CLIP(nn.Module):
     def forward(self, image):
         image_features = self.encode_image(image)
         #text_features = self.encode_text(text)
-        print('image_features.shape', image_features.shape)
+        #print('image_features.shape', image_features.shape)
         # normalized features
         #image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         #text_features = text_features / text_features.norm(dim=-1, keepdim=True)

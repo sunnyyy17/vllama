@@ -1,0 +1,14 @@
+*.pth
+*.pyc
+*.pt
+*.jpg
+*.png
+*.jpeg
+*.txt
+*.slurm
+*.err
+*.out
+*eval.yaml
+*train.yaml
+/output
+/outputs

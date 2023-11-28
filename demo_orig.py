@@ -10,7 +10,7 @@ import gradio as gr
 from minigpt4.common.config import Config
 from minigpt4.common.dist_utils import get_rank
 from minigpt4.common.registry import registry
-from minigpt4.conversation.conversation import Chat, CONV_VISION
+from minigpt4.conversation.conversation_orig import Chat, CONV_VISION
 
 # imports modules for registration
 from minigpt4.datasets.builders import *
@@ -41,7 +41,7 @@ def setup_seeds(config):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    
+
     cudnn.benchmark = False
     cudnn.deterministic = True
 
@@ -90,6 +90,7 @@ def gradio_ask(user_message, chatbot, chat_state):
     chat.ask(user_message, chat_state)
     chatbot = chatbot + [[user_message, None]]
     return '', chatbot, chat_state
+
 
 def gradio_answer(chatbot, chat_state, img_list, num_beams, temperature):
     llm_message = chat.answer(conv=chat_state,

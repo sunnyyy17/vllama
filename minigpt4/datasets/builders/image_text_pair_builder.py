@@ -6,7 +6,57 @@ from minigpt4.common.registry import registry
 from minigpt4.datasets.builders.base_dataset_builder import BaseDatasetBuilder
 from minigpt4.datasets.datasets.laion_dataset import LaionDataset
 from minigpt4.datasets.datasets.cc_sbu_dataset import CCSBUDataset, CCSBUAlignDataset
-from minigpt4.datasets.datasets.ct_datasets import CTDataset, CTSegDataset
+from minigpt4.datasets.datasets.ct_datasets import CTDataset, CTSegDataset, CTSeg3DDataset, ImgEmbedDataset, rectalMRIDataset, brainMRIDataset
+
+
+@registry.register_builder("brain-mri-3d")
+class brainMRI3dbuilder(BaseDatasetBuilder):
+    train_dataset_cls = brainMRIDataset
+    DATASET_CONFIG_DICT = {"default": "configs/datasets/brain-mri-3d/defaults.yaml"}
+    def build(self):
+        build_info = self.config.build_info
+        
+        datasets = dict()
+        split = "train"
+        dataset_cls = self.train_dataset_cls
+        datasets[split] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=True)
+        
+        return datasets
+
+@registry.register_builder("rectal-mri-3d")
+class rectalMRI3dbuilder(BaseDatasetBuilder):
+    train_dataset_cls = rectalMRIDataset
+    DATASET_CONFIG_DICT = {"default": "configs/datasets/rectal-mri-3d/defaults.yaml"}
+    def build(self):
+        build_info = self.config.build_info
+        
+        datasets = dict()
+        split = "train"
+        dataset_cls = self.train_dataset_cls
+        datasets[split] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=True)
+        
+        return datasets
+
+@registry.register_builder("ct-seg-3d")
+class CTSeg3dBuilder(BaseDatasetBuilder):
+    train_dataset_cls = CTSeg3DDataset
+    DATASET_CONFIG_DICT = {"default": "configs/datasets/ct-seg-3d/defaults.yaml"}
+    def build(self):
+        #self.build_processors()
+        
+        build_info = self.config.build_info
+        
+        datasets = dict()
+        split = "train"
+        
+        # create datasets
+        # [NOTE] return inner_datasets (wds.DataPipeline)
+        dataset_cls = self.train_dataset_cls
+        #print('len(CTSeg)', len(dataset_cls))
+        datasets[split] = dataset_cls(img_path=build_info.img_path,
+        txt_path=build_info.txt_path , column='report', transform=None, is_train=True)
+        
+        return datasets
 
 
 @registry.register_builder("ct-seg")
@@ -15,18 +65,19 @@ class CTSegBuilder(BaseDatasetBuilder):
     DATASET_CONFIG_DICT = {"default": "configs/datasets/ct-seg/defaults.yaml"}
     def build(self):
         #self.build_processors()
-
+        
         build_info = self.config.build_info
         
         
         datasets = dict()
         split = "train"
-    
+        
         # create datasets
         # [NOTE] return inner_datasets (wds.DataPipeline)
         dataset_cls = self.train_dataset_cls
+        #print('len(CTSeg)', len(dataset_cls))
         datasets[split] = dataset_cls(img_path=build_info.img_path,
-        txt_path=build_info.txt_path , column='report', size=None, transform=None )
+        txt_path=build_info.txt_path , column='impression', size=None, transform=None, is_train=True)
 
         return datasets
 
@@ -36,13 +87,9 @@ class CTBuilder(BaseDatasetBuilder):
     DATASET_CONFIG_DICT = {"default": "configs/datasets/ct/defaults.yaml"}
     def build(self):
         #self.build_processors()
-
         build_info = self.config.build_info
-        
-        
         datasets = dict()
         split = "train"
-    
         # create datasets
         # [NOTE] return inner_datasets (wds.DataPipeline)
         dataset_cls = self.train_dataset_cls
@@ -54,15 +101,31 @@ class CTBuilder(BaseDatasetBuilder):
 
         return datasets
     
+@registry.register_builder("ct-img-embed")
+class CTEmbedBuilder(BaseDatasetBuilder):
+    train_dataset_cls = ImgEmbedDataset
+    DATASET_CONFIG_DICT = {"default": "configs/datasets/ct-image-embed/defaults.yaml"}
+    def build(self):
+        #self.build_processors()
+        build_info = self.config.build_info
+        datasets = dict()
+        split = "train"
+        # create datasets
+        # [NOTE] return inner_datasets (wds.DataPipeline)
+        dataset_cls = self.train_dataset_cls
+        datasets[split] = dataset_cls(img_embed_path=build_info.img_embed_path, text_path=build_info.text_path)
+
+        return datasets
+
 @registry.register_builder("cc_sbu")
 class CCSBUBuilder(BaseDatasetBuilder):
     train_dataset_cls = CCSBUDataset
-
+    
     DATASET_CONFIG_DICT = {"default": "configs/datasets/cc_sbu/defaults.yaml"}
     
     def _download_ann(self):
         pass
-
+    
     def _download_vis(self):
         pass
     

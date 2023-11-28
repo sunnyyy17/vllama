@@ -60,12 +60,12 @@ class Config:
 
         model_cls = registry.get_model_class(model.arch)
         assert model_cls is not None, f"Model '{model.arch}' has not been registered."
-
+        
         model_type = kwargs.get("model.model_type", None)
         if not model_type:
             model_type = model.get("model_type", None)
         # else use the model type selected by user.
-
+        
         assert model_type is not None, "Missing model_type."
 
         model_config_path = model_cls.default_config_path(model_type=model_type)
@@ -77,7 +77,7 @@ class Config:
             OmegaConf.load(model_config_path),
             {"model": config["model"]},
         )
-
+        
         return model_config
 
     @staticmethod
@@ -96,7 +96,7 @@ class Config:
 
         for dataset_name in datasets:
             builder_cls = registry.get_builder_class(dataset_name)
-
+            print(type(builder_cls))
             dataset_config_type = datasets[dataset_name].get("type", "default")
             dataset_config_path = builder_cls.default_config_path(
                 type=dataset_config_type

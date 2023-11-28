@@ -17,6 +17,7 @@ import torch.nn.functional as F
 
 from minigpt4.models.model import CLIP
 import minigpt4.models.clip as clip
+import minigpt4.models.vision_transformer as vits
 
 
 import minigpt4.common.dist_utils as dist_utils
@@ -35,7 +36,7 @@ class Blip2Base(BaseModel):
         tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         tokenizer.add_special_tokens({"bos_token": "[DEC]"})
         return tokenizer
-
+    
     def maybe_autocast(self, dtype=torch.float16):
         # if on cpu, don't use autocast
         # if on gpu, use autocast with dtype if provided, otherwise use torch.float16
@@ -60,7 +61,7 @@ class Blip2Base(BaseModel):
         )
         query_tokens.data.normal_(mean=0.0, std=encoder_config.initializer_range)
         return Qformer, query_tokens
-
+    
     @classmethod
     def init_vision_encoder(
         cls, model_name, img_size, drop_path_rate, use_grad_checkpoint, precision
@@ -105,20 +106,37 @@ class Blip2Base(BaseModel):
         # if a model_path is provided, load in weights to backbone
         if model_path != None: 
             vision_encoder.load_state_dict(torch.load(model_path)) #, map_location=device))
-
+            
         return vision_encoder
     
+    def init_DINO_encoder(cls, model, model_path, patch_size):
+        if model in vits.__dict__.keys():
+            vision_encoder = vits.__dict__[model](patch_size=patch_size)
+        
+        if model_path != None:
+            #vision_encoder.load_state_dict(torch.load(model_path))
+            state_dict = torch.load(model_path)
+            # remove `module.` prefix
+            state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+            # remove `backbone.` prefix induced by multicrop wrapper
+            state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+            vision_encoder.load_state_dict(state_dict, strict=False)
+
+        return vision_encoder
+
     def load_from_pretrained(self, url_or_filename):
         if is_url(url_or_filename):
             cached_file = download_cached_file(
                 url_or_filename, check_hash=False, progress=True
             )
             checkpoint = torch.load(cached_file, map_location="cpu")
+            #checkpoint = checkpoint.to(torch.float16)
         elif os.path.isfile(url_or_filename):
             checkpoint = torch.load(url_or_filename, map_location="cpu")
+            #checkpoint = checkpoint.to(torch.float16)
         else:
             raise RuntimeError("checkpoint url or path is invalid")
-        
+    
         state_dict = checkpoint["model"]
         msg = self.load_state_dict(state_dict, strict=False)
 

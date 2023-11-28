@@ -117,6 +117,7 @@ CONV_VISION = Conversation(
 )
 
 
+
 class Chat:
     def __init__(self, model, vis_processor, device='cuda:0'):
         self.device = device
@@ -143,7 +144,7 @@ class Chat:
             print('Warning: The number of tokens in current conversation exceeds the max length. '
                   'The model will not see the contexts outside the range.')
         begin_idx = max(0, current_max_len - max_length)
-        
+
         embs = embs[:, begin_idx:]
 
         outputs = self.model.llama_model.generate(
@@ -168,7 +169,7 @@ class Chat:
         output_text = output_text.split('Assistant:')[-1].strip()
         conv.messages[-1][1] = output_text
         return output_text, output_token.cpu().numpy()
-            
+
     def upload_img(self, image, conv, img_list):
         if isinstance(image, str):  # is a image path
             raw_image = Image.open(image).convert('RGB')
@@ -180,14 +181,14 @@ class Chat:
             if len(image.shape) == 3:
                 image = image.unsqueeze(0)
             image = image.to(self.device)
-    
+
         image_emb, _ = self.model.encode_img(image)
         img_list.append(image_emb)
         conv.append_message(conv.roles[0], "<Img><ImageHere></Img>")
         msg = "Received."
-        # self.conv.append_messge(self.conv.roles[1], msg)
+        # self.conv.append_message(self.conv.roles[1], msg)
         return msg
-    
+
     def get_context_emb(self, conv, img_list):
         prompt = conv.get_prompt()
         prompt_segs = prompt.split('<ImageHere>')
@@ -198,10 +199,9 @@ class Chat:
             # only add bos to the first seg
             for i, seg in enumerate(prompt_segs)
         ]
-        seg_embs = [self.model.llama_model.model.model.embed_tokens(seg_t) for seg_t in seg_tokens]
+        seg_embs = [self.model.llama_model.model.embed_tokens(seg_t) for seg_t in seg_tokens]
         mixed_embs = [emb for pair in zip(seg_embs[:-1], img_list) for emb in pair] + [seg_embs[-1]]
         mixed_embs = torch.cat(mixed_embs, dim=1)
         return mixed_embs
-        
-        
+
 

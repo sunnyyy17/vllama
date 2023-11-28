@@ -124,7 +124,7 @@ class Blip2ImageEvalProcessor(BlipImageBaseProcessor):
                 self.normalize,
             ]
         )
-
+    
     def __call__(self, item):
         return self.transform(item)
 

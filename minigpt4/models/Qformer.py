@@ -72,7 +72,7 @@ class BertEmbeddings(nn.Module):
         self.position_embedding_type = getattr(
             config, "position_embedding_type", "absolute"
         )
-
+        
         self.config = config
 
     def forward(
@@ -91,7 +91,7 @@ class BertEmbeddings(nn.Module):
             position_ids = self.position_ids[
                 :, past_key_values_length : seq_length + past_key_values_length
             ].clone()
-
+        
         if input_ids is not None:
             embeddings = self.word_embeddings(input_ids)
             if self.position_embedding_type == "absolute":
@@ -125,6 +125,8 @@ class BertSelfAttention(nn.Module):
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
         self.query = nn.Linear(config.hidden_size, self.all_head_size)
+        #print('config.encoder_width', config.encoder_width)
+        #print('all_head_size', self.all_head_size)
         if is_cross_attention:
             self.key = nn.Linear(config.encoder_width, self.all_head_size)
             self.value = nn.Linear(config.encoder_width, self.all_head_size)
@@ -701,7 +703,7 @@ class BertModel(BertPreTrainedModel):
 
     def set_input_embeddings(self, value):
         self.embeddings.word_embeddings = value
-
+    
     def _prune_heads(self, heads_to_prune):
         """
         Prunes heads of the model. heads_to_prune: dict of {layer_num: list of heads to prune in this layer} See base
@@ -789,7 +791,7 @@ class BertModel(BertPreTrainedModel):
                     input_shape, attention_mask.shape
                 )
             )
-
+            
         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
         # masked positions, this operation will create a tensor which is 0.0 for
         # positions we want to attend and -10000.0 for masked positions.
@@ -862,7 +864,7 @@ class BertModel(BertPreTrainedModel):
             if past_key_values is not None
             else 0
         )
-
+        
         query_length = query_embeds.shape[1] if query_embeds is not None else 0
 
         embedding_output = self.embeddings(
@@ -871,7 +873,7 @@ class BertModel(BertPreTrainedModel):
             query_embeds=query_embeds,
             past_key_values_length=past_key_values_length,
         )
-
+        
         input_shape = embedding_output.size()[:-1]
         batch_size, seq_length = input_shape
         device = embedding_output.device
@@ -926,7 +928,7 @@ class BertModel(BertPreTrainedModel):
                 )
         else:
             encoder_extended_attention_mask = None
-
+        
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
         # attention_probs has shape bsz x n_heads x N x N
@@ -983,7 +985,7 @@ class BertLMHeadModel(BertPreTrainedModel):
 
     def set_output_embeddings(self, new_embeddings):
         self.cls.predictions.decoder = new_embeddings
-
+    
     def forward(
         self,
         input_ids=None,
@@ -1025,6 +1027,7 @@ class BertLMHeadModel(BertPreTrainedModel):
             If set to :obj:`True`, :obj:`past_key_values` key value states are returned and can be used to speed up
             decoding (see :obj:`past_key_values`).
         Returns:
+        
         Example:
             >>> from transformers import BertTokenizer, BertLMHeadModel, BertConfig
             >>> import torch
@@ -1146,7 +1149,7 @@ class BertForMaskedLM(BertPreTrainedModel):
 
     def set_output_embeddings(self, new_embeddings):
         self.cls.predictions.decoder = new_embeddings
-
+    
     def forward(
         self,
         input_ids=None,
@@ -1207,7 +1210,7 @@ class BertForMaskedLM(BertPreTrainedModel):
             return (
                 ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
             )
-
+        
         return MaskedLMOutput(
             loss=masked_lm_loss,
             logits=prediction_scores,

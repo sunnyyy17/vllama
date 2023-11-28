@@ -1,4 +1,4 @@
-"""
+Zxcvbnmk,l.;'lkjhgfdsaASWDERFTGYUIOP[]=-0987654321`"""
  Copyright (c) 2022, salesforce.com, inc.
  All rights reserved.
  SPDX-License-Identifier: BSD-3-Clause
@@ -14,7 +14,6 @@ from transformers.modeling_outputs import (
     BaseModelOutputWithPoolingAndCrossAttentions,
     CausalLMOutputWithCrossAttentions,
 )
-
 
 @dataclass
 class BlipSimilarity(ModelOutput):
