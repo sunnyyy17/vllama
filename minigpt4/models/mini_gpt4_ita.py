@@ -127,7 +127,6 @@ class MiniGPT4Ita(Blip2Base):
         print('visual_encoder.num_features', self.visual_encoder.num_features)
         
         self.Qformer, self.query_tokens = self.init_Qformer(num_query_token, 1408)
-
         self.Qformer_m, _ = self.init_Qformer(num_query_token, 1408)
         #print(self.Qformer.parameters())
         self.Qformer.cls = None
