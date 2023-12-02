@@ -188,7 +188,7 @@ class Chat:
         msg = "Received."
         # self.conv.append_message(self.conv.roles[1], msg)
         return msg
-
+        
     def get_context_emb(self, conv, img_list):
         prompt = conv.get_prompt()
         prompt_segs = prompt.split('<ImageHere>')

@@ -151,7 +151,7 @@ with torch.no_grad():
             length_penalty=length_penalty,
             temperature=temperature,
         )
-
+        
         output_token = outputs[0]
         if output_token[0] == 0:  # the model might output a unknow token <unk> at the beginning. remove it
             output_token = output_token[1:]
@@ -164,7 +164,7 @@ with torch.no_grad():
         print('Candidate: ', output_text)
         print('Ground Truth: ', text)
         print('==================================')
-
+        
         bleu_score = sentence_bleu(text, output_text, weights=(0.25, 0.25, 0.25, 0.25))
         rouge_score = rouge(output_text, text)
         #print(rouge_score)

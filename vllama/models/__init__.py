@@ -12,11 +12,11 @@ from omegaconf import OmegaConf
 from vllama.common.registry import registry
 from vllama.models.base_model import BaseModel
 from vllama.models.blip2 import Blip2Base
-from vllama.models.mini_gpt4_ita_frozen import vllamaItaFrozen 
-from vllama.models.mini_gpt4_ita import vllamaIta
+from vllama.models.vllamaita_frozen import vllamaItaFrozen 
+from vllama.models.vllamaita import vllamaIta
 from vllama.models.mini_gpt4_orig import vllamaOrig
-from vllama.models.mini_gpt4 import vllama
-from vllama.models.mini_gpt4_asclepius import vllamaAscl
+from vllama.models.vllama import vllama
+from vllama.models.vllamaasclepius import vllamaAscl
 from vllama.models.img_emb import ImageWrapEmbeddings
 from vllama.processors.base_processor import BaseProcessor
 
