@@ -72,6 +72,8 @@ class ReportGenerationPipeline(Pipeline):
         
         self.model = model
         self.task = task
+    
+    
 
     def preprocess(self, image):
         
@@ -100,6 +102,12 @@ class ReportGenerationPipeline(Pipeline):
             return wrapped_img_embs
         else:
             return img_emb
+
+    
+    def _sanitize_parameters(self):
+
+        return 
+    
     
     def _forward(self, model_input, **generate_kwargs):
         
@@ -133,4 +141,5 @@ class ReportGenerationPipeline(Pipeline):
         
         return output_text 
         
-        
+    def postprocess(self):
+        return
