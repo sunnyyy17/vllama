@@ -116,7 +116,7 @@ prompt = "Make this following MRI report more concise by only containing clinica
 new_report = {}
 with torch.no_grad():
     for patient_id, report in report_data.items():
-    
+        
         input_text = prompt + report
         #input_image = vis_processor(image).to(device)
         #image_emb, atts_img, _ = model.encode_img(image)

@@ -307,8 +307,8 @@ class MiniGPT4Ita(Blip2Base):
             #print("self.query_tokens.shape", self.query_tokens.shape)
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-            #print("query_tokens.shape", query_tokens.shape)
-            
+            print("query_tokens.shape", query_tokens.shape)
+            query_output = [] 
             if query_true:
                 query_output = self.Qformer.bert(
                     query_embeds=query_tokens,
@@ -316,6 +316,8 @@ class MiniGPT4Ita(Blip2Base):
                     encoder_attention_mask=image_atts,
                     return_dict=True,
                 )
+
+            
                 inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
                 #print("inputs_llama.shape", inputs_llama.shape)
                 atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
@@ -391,7 +393,7 @@ class MiniGPT4Ita(Blip2Base):
             padding="longest",
             truncation=True,
             max_length=self.max_txt_len).to(image.device)
-
+        print(image.device)
         #txt_atts = torch.ones(txt_tokens.input_ids.size()[:-1], dtype=torch.long).to(image.device)
         txt_output = self.Qformer.bert(
                     input_ids= txt_tokens.input_ids,
@@ -401,10 +403,10 @@ class MiniGPT4Ita(Blip2Base):
                     return_dict=True,
                     is_decoder=False
                 )
-
+        
         txt_embeds = txt_output.last_hidden_state[:,0,:]
         #print('txt_embeds.shape', txt_embeds.shape)
-
+        
         img_feat = F.normalize(query_output.mean(dim=0), dim=-1)
         txt_feat = F.normalize(txt_embeds, dim=-1)
         
@@ -414,7 +416,7 @@ class MiniGPT4Ita(Blip2Base):
             _, _, query_output_m = self.encode_img(image)
             #img_embeds_m = img_embeds_m.view(bs, ds, num_patch, embed_dim)
             #img_embeds_m = img_embeds_m + self.interpolate_pos_encoding(self.z_embed_m, img_embeds_m)
-
+        
             #img_embeds_m = img_embeds_m.view(bs, -1, embed_dim)
             #print('query_output_m.shape', query_output_m.shape)
             image_feat_m = F.normalize(query_output_m.mean(dim=1), dim=-1)

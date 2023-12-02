@@ -277,7 +277,7 @@ class RunnerBase:
     
     @property
     def cuda_enabled(self):
-        return self.device.type == "cuda"
+        return self.device.type == "cuda:1"
     
     @property
     def max_epoch(self):
@@ -508,6 +508,7 @@ class RunnerBase:
                 split_name=split_name,
                 epoch=cur_epoch,
             )
+            
     
     def unwrap_dist_model(self, model):
         if self.use_distributed:

@@ -262,7 +262,7 @@ class MiniGPT4Ita(Blip2Base):
         self.temp = nn.Parameter(torch.ones([]) * temp)
         self.alphas = alpha
         self.momentum = momentum
-
+        
         ###QUEUE
         self.embed_dim = 768
         self.queue_size = queue_size
@@ -360,7 +360,6 @@ class MiniGPT4Ita(Blip2Base):
             self.vit_to_cpu()
             image = image.to("cpu")
         
-        device = 'cuda:0'
         with self.maybe_autocast():
             #image_embeds = self.ln_vision(self.visual_encoder(image)).to(device)
             #image_embeds = self.visual_encoder(image).to(device)
@@ -385,6 +384,13 @@ class MiniGPT4Ita(Blip2Base):
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
             '''
             for idx in range(image.shape[0]):
+                
+                if idx < 5:
+                    continue
+
+                if idx == image.shape[0]-5:
+                    break
+                
                 slice = image[idx]
                 #print('slice.shape', slice.shape)
                 slice = kornia.geometry.transform.resize(slice, size=(224, 224))
@@ -392,14 +398,14 @@ class MiniGPT4Ita(Blip2Base):
                 #slice_image = torch.cat((slice, slice, slice), dim=0)
                 slice_image = torch.unsqueeze(slice, dim=0)
                 #print('slice_image.shape', slice_image.shape)
-                slice_embeds = self.visual_encoder(slice_image).to(device)
-                
+                slice_embeds = self.visual_encoder(slice_image).to(self.llama_model_device)
+                #print(slice_embeds.shape)
                 #print('slice embeds.shape', slice_embeds.shape)
-                if idx == 0:
+                if idx == 5:
                     image_embeds = slice_embeds
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
             #print('image_embeds.shape', image_embeds.shape)
-            image_embeds = image_embeds.to(device)
+            image_embeds = image_embeds.to(self.llama_model_device)
             image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
@@ -408,7 +414,7 @@ class MiniGPT4Ita(Blip2Base):
             #print('image_embeds device', image_embeds.device)
             image_embeds = self.qform_proj_chz(image_embeds)
             #print('qform_aligned image_embeds.shape', image_embeds.shape)
-            image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
+            image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
             #print("image_atts.shape", image_atts.shape)
             #print("self.query_tokens.shape", self.query_tokens.shape)
@@ -425,7 +431,7 @@ class MiniGPT4Ita(Blip2Base):
                 )
                 inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
                 #print("inputs_llama.shape", inputs_llama.shape)
-                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
+                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             else:
                 query_output = self.Qformer_m.bert(
                     query_embeds=query_tokens,
@@ -436,7 +442,7 @@ class MiniGPT4Ita(Blip2Base):
                 
                 inputs_llama = self.llama_proj_chz_m(query_output.last_hidden_state)
                 #print("inputs_llama.shape", inputs_llama.shape)
-                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
+                atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
             #print("query_output.shape", query_output.shape)
             #print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
@@ -482,8 +488,9 @@ class MiniGPT4Ita(Blip2Base):
         #image = samples["image"]
         ###FOR CT
         #print(samples[0].shape, samples[1])
-        image = samples[0]
-        text = samples[1]
+        
+        image = samples[0].to(self.llama_model_device)
+        text = samples[1]#.to(self.llama_model_device)
         #print(image.shape)
         #print(text)
         bs, ds, c, h, w = image.size()
@@ -491,7 +498,7 @@ class MiniGPT4Ita(Blip2Base):
         image = image.view(-1, c, h, w)
         
         img_embeds, atts_img, query_output = self.encode_img(image)
-        atts_img = atts_img.to(image.device)
+        atts_img = atts_img.to(self.llama_model_device)
         if hasattr(samples, 'question_split'):  # VQA dataset
             print('VQA Batch')
             vqa_prompt = '###Human: <Img><ImageHere></Img> '
@@ -513,9 +520,10 @@ class MiniGPT4Ita(Blip2Base):
         txt_tokens = self.tokenizer(text, return_tensors="pt",
             padding="longest",
             truncation=True,
-            max_length=self.max_txt_len).to(image.device)
-
-        #txt_atts = torch.ones(txt_tokens.input_ids.size()[:-1], dtype=torch.long).to(image.device)
+            max_length=self.max_txt_len).to(self.llama_model_device)
+        #print(txt_tokens.device)
+        #print(self.llama_model_device)
+        #txt_atts = torch.ones(txt_tokens.input_ids.size()[:-1], dtype=torch.long).to(self.llama_model_device)
         txt_output = self.Qformer.bert(
                     input_ids= txt_tokens.input_ids,
                     attention_mask= txt_tokens.attention_mask,
@@ -524,10 +532,10 @@ class MiniGPT4Ita(Blip2Base):
                     return_dict=True,
                     is_decoder=False
                 )
-
+        
         txt_embeds = txt_output.last_hidden_state[:,0,:]
         #print('txt_embeds.shape', txt_embeds.shape)
-
+        
         img_feat = F.normalize(query_output.mean(dim=0), dim=-1)
         txt_feat = F.normalize(txt_embeds, dim=-1)
         
@@ -601,7 +609,7 @@ class MiniGPT4Ita(Blip2Base):
             truncation=True,
             max_length=self.max_txt_len,
             add_special_tokens=False
-        ).to(image.device)
+        ).to(self.llama_model_device)
         #print('to_shape', to_regress_tokens.input_ids.shape)
         targets_pre = to_regress_tokens.input_ids.masked_fill(
             to_regress_tokens.input_ids == self.llama_tokenizer.pad_token_id, -100
@@ -614,7 +622,7 @@ class MiniGPT4Ita(Blip2Base):
         #print('atts_img shape', atts_img.shape)
         empty_targets = (
             torch.ones([atts_img.shape[0], atts_img.shape[1]+1],
-                       dtype=torch.long).to(image.device).fill_(-100)  # plus one for bos
+                       dtype=torch.long).to(self.llama_model_device).fill_(-100)  # plus one for bos
         )
         
         targets = torch.cat([empty_targets, targets], dim=1)
@@ -664,7 +672,7 @@ class MiniGPT4Ita(Blip2Base):
         freeze_vit = cfg.get("freeze_vit", True)
         freeze_qformer = cfg.get("freeze_qformer", True)
         low_resource = cfg.get("low_resource", False)
-        device_8bit = cfg.get("device_8bit", 0)
+        device_8bit = cfg.get("device_8bit", 1)
         vit_path = cfg.get("vit_path")
         lora_r = cfg.get("lora_r")
         lora_target_modules = cfg.get("lora_target_modules")

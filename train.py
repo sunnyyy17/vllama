@@ -74,7 +74,8 @@ def get_runner_class(cfg):
 def main():
     # allow auto-dl completes on main process without timeout when using NCCL backend.
     # os.environ["NCCL_BLOCKING_WAIT"] = "1"
-
+    #os.environ['MASTER_ADDR'] = '127.0.0.2'
+    #os.environ['MASTER_PORT'] = '39500'
     # set before init_distributed_mode() to ensure the same job_id shared across all ranks.
     job_id = now()
 

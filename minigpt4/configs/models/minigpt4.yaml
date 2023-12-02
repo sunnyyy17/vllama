@@ -20,7 +20,7 @@ model:
   #'/scratch/slurm-user3/.cache/huggingface/hub/models--starmpcc--Asclepius-7B/snapshots/9207fa5ec28658219040b890a522516273ec9a7b/'
   # "/scratch/slurm-user3/.cache/huggingface/hub/models--starmpcc--Asclepius-13B/snapshots/a6f38d1336521e66a2a4154f3113c7463f77bd87/" 
   # "/scratch/slurm-user3/.cache/huggingface/hub/models--starmpcc--Asclepius-7B/snapshots/9207fa5ec28658219040b890a522516273ec9a7b/"  #"/home/changsun/vicuna-13b-working/" #"/scratch/slurm-user3/changsun/vicuna-13b-working/" #"/path/to/vicuna/weights/""/home/changsun/Asclepius-7B/" #
-
+  
   # generation configs
   prompt: ""
 

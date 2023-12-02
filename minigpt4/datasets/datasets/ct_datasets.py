@@ -332,6 +332,10 @@ class rectalMRIDataset(data.Dataset):
         self.subject_list = sorted(self.subject_list)
 
         print(len(self.subject_list))
+        for idx, item in enumerate(self.subject_list):
+            if 'SURVEY' in item:
+                _ = self.subject_list.pop(idx)
+        print(len(self.subject_list))
 
     def __len__(self):
         return len(self.subject_list)
@@ -369,7 +373,7 @@ class rectalMRIDataset(data.Dataset):
 
         preproc_frames = np.asarray(volume.dataobj)[h_t + d:h_t + 224+d, w_t + d:w_t + 224+d, :]
         preproc_frames = preproc_frames.astype(np.float32)
-        print(preproc_frames.shape)
+        #print(preproc_frames.shape)
         preproc_frames = torch.from_numpy(preproc_frames)
         preproc_frames = preproc_frames.permute(2, 0, 1)
         
@@ -400,7 +404,7 @@ class rectalMRIDataset(data.Dataset):
                                                               size=(224, 224))
         
         #print('here')
-        print('preproc_frames_cat.shape', preproc_frames_cat.shape)
+        #print('preproc_frames_cat.shape', preproc_frames_cat.shape)
         #print('subject', subject)
         ##dir_path = subject.split('/')
         #output_path = os.path.join(*dir_path[:-1])
@@ -431,7 +435,7 @@ class brainMRIDataset(data.Dataset):
             self.subject_list = self.all_subject[int(len(self.all_subject)*0.90):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
-
+        
         print(len(self.subject_list))
 
     def __len__(self):

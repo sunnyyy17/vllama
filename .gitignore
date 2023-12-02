@@ -8,6 +8,7 @@
 *.slurm
 *.err
 *.out
+*.yaml
 *eval.yaml
 *train.yaml
 /output

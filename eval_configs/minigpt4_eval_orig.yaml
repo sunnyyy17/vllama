@@ -6,10 +6,11 @@ model:
   max_txt_len: 160
   end_sym: "###"
   low_resource: True
+  device_8bit: 2
   prompt_path: "prompts/alignment.txt"
   prompt_template: '###Human: {} ###Assistant: '
-  ckpt: '/scratch/slurm-user3/changsun/minigpt4/minigpt4/output/minigpt4_stage1_pretrain/rectal-dino-pmcllama-lora/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
-  vit_path: '/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_imgnet_pretrained/checkpoint0095.pth'
+  ckpt: '/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_3.pth' #'/path/to/pretrained/ckpt/'
+  vit_path: '/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/rectal_dino_nosolar_noflipjitter1_checkpoint0010.pth'
   lora_r: 32
   lora_target_modules: ["q_proj","v_proj"]
   lora_alpha: 16

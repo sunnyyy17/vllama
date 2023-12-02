@@ -38,6 +38,7 @@ def parse_args():
         "in xxx=yyy format will be merged into config file (deprecate), "
         "change to --cfg-options instead.",
     )
+    
     args = parser.parse_args()
     return args
 
@@ -51,7 +52,7 @@ def setup_seeds(config):
     cudnn.benchmark = False
     cudnn.deterministic = True
 
-pretrained_checkpoint = 'checkpoint_10.pth'
+#pretrained_checkpoint = 'checkpoint_10.pth'
 
 args = parse_args()
 cfg = Config(args)
@@ -64,12 +65,12 @@ model = model_cls.from_config(model_config).to('cuda:{}'.format(args.gpu_id))
 vis_processor_cfg = cfg.datasets_cfg.cc_sbu_align.vis_processor.train
 vis_processor = registry.get_processor_class(vis_processor_cfg.name).from_config(vis_processor_cfg)
 
-img_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_volume/'
-txt_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_label/202301_MRI_impression_final.json'
-dataset = rectalMRIDataset(img_path, txt_path, None, False)
+img_path = '/data/changsun/data/MRI/brain/brain_MRI_volume/'
+txt_path = '/data/changsun/data/MRI/brain/mri_3d_report.csv'
+dataset = brainMRIDataset(img_path, txt_path, None, False)
 test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
-device = 'cuda'
+device = 'cuda:1'
 
 
 class StoppingCriteriaSub(StoppingCriteria):
@@ -160,6 +161,8 @@ with torch.no_grad():
         output_text = model.llama_tokenizer.decode(output_token, add_special_tokens=False)
         output_text = output_text.split('###')[0]  # remove the stop sign '###'
         output_text = output_text.split('Assistant:')[-1].strip()
+        
+        
         print('==================================')
         print('Candidate: ', output_text)
         print('Ground Truth: ', text)
