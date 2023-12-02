@@ -4,8 +4,8 @@ import warnings
 
 from vllama.common.registry import registry
 from vllama.datasets.builders.base_dataset_builder import BaseDatasetBuilder
-from vllama.datasets.datasets.laion_dataset import LaionDataset
-from vllama.datasets.datasets.cc_sbu_dataset import CCSBUDataset, CCSBUAlignDataset
+#from vllama.datasets.datasets.laion_dataset import LaionDataset
+#from vllama.datasets.datasets.cc_sbu_dataset import CCSBUDataset, CCSBUAlignDataset
 from vllama.datasets.datasets.ct_datasets import CTDataset, CTSegDataset, CTSeg3DDataset, ImgEmbedDataset, rectalMRIDataset, brainMRIDataset
 
 
@@ -117,6 +117,7 @@ class CTEmbedBuilder(BaseDatasetBuilder):
 
         return datasets
 
+'''
 @registry.register_builder("cc_sbu")
 class CCSBUBuilder(BaseDatasetBuilder):
     train_dataset_cls = CCSBUDataset
@@ -212,3 +213,4 @@ class CCSBUAlignBuilder(BaseDatasetBuilder):
         )
 
         return datasets
+'''

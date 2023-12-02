@@ -1,45 +1,82 @@
 import logging
+import numpy as np
+import kornia
 from transformers import Pipeline
-from vllama.models.mini_gpt4_ita import vllamaIta
+from vllama.models.vllamaita import vllamaIta
+#from ct_datasets import brainMRIDataset
+
+
+class InvalidFileError(Exception):
+    pass
+
+class InvalidDimensionError(Exception):
+    pass
+
+def mri_preprocess(np_img):
+
+    try:
+
+        volume = np.load(np_img)
+
+        if volume.ndim != expected_dimensions:
+            raise InvalidDimensionError(f"The file has incorrect dimensions: expected {expected_dimensions}, got {volume.ndim}")
+        
+        preproc_frames = preproc_frames.astype(np.float32)
+        preproc_frames = torch.from_numpy(preproc_frames)
+        
+        preproc_frames = preproc_frames.permute(0, 3, 1, 2)
+        
+        # Brain window
+        preproc_frames_brain = preproc_frames[:, 0, :, :].clone()
+        preproc_frames_brain[preproc_frames_brain > 80] = 80
+        preproc_frames_brain[preproc_frames_brain < 0] = 0
+        preproc_frames_brain = (preproc_frames_brain - preproc_frames_brain.min()) / (preproc_frames_brain.max() - preproc_frames_brain.min())
+        preproc_frames_brain = preproc_frames_brain.unsqueeze(1)
+        
+        # Subdural window
+        preproc_frames_subdural = preproc_frames[:, 1, :, :].clone()
+        preproc_frames_subdural[preproc_frames_subdural > 170] = 170
+        preproc_frames_subdural[preproc_frames_subdural < -10] = -10
+        preproc_frames_subdural = (preproc_frames_subdural - preproc_frames_subdural.min()) / (preproc_frames_subdural.max() - preproc_frames_subdural.min())
+        preproc_frames_subdural = preproc_frames_subdural.unsqueeze(1)
+        
+        # Bone window
+        preproc_frames_bone = preproc_frames[:, 2, :, :].clone().float()
+        preproc_frames_bone[preproc_frames_bone > 1500] = 1500
+        preproc_frames_bone[preproc_frames_bone < -500] = -500
+        preproc_frames_bone = (preproc_frames_bone - preproc_frames_bone.min()) / (preproc_frames_bone.max() - preproc_frames_bone.min())
+        preproc_frames_bone = preproc_frames_bone.unsqueeze(1)
+
+        preproc_frames_cat = torch.cat([preproc_frames_brain, preproc_frames_brain, preproc_frames_brain], dim=1)
+        preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
+                                                              size=(224, 224))
+
+        return preproc_frames_cat
+    
+    except FileNotFoundError:
+        raise InvalidFileError("File not found or not a valid numpy file")
+
+    except IOError:
+        raise InvalidFileError("Error reading the file. It might not be a valid numpy file")
+
+    except InvalidDimensionError as e:
+        # You can handle specific dimension error here if needed
+        raise e
+
 
 class ReportGenerationPipeline(Pipeline):
-    def __init__(
-        self, 
-        *args,
-        max_new_tokens = 
-        top_p = 
-        top_k = 
-    )
 
-        super().__init__(
-            *args, 
-            max_new_tokens=,
-            top_p=,
-            top_k=,
-            **kwargs,
-        )
+    def __init__(self, model, task, **kwargs):
 
-    def prompt_wrap(self, img_embeds, atts_img, prompt):
-        if prompt:
-            batch_size = img_embeds.shape[0]
-            p_before, p_after = prompt.split('<ImageHere>')
-            p_before_tokens = self.llama_tokenizer(
-                p_before, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-            p_after_tokens = self.llama_tokenizer(
-                p_after, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-            p_before_embeds = self.llama_model.model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-            p_after_embeds = self.llama_model.model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
-            #p_before_embeds = self.llama_model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-            #p_after_embeds = self.llama_model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
-            wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
-            wrapped_atts_img = atts_img[:, :1].expand(-1, wrapped_img_embeds.shape[1])
-            return wrapped_img_embeds, wrapped_atts_img
-        else:
-            return img_embeds, atts_img
-    
-    def preprocess(self, image, text):
+        super().__init__(self, model, task, **kwargs)
+        
+        self.model = model
+        self.task = task
 
-        img_emb, _ = self.model.encode_img(image)
+    def preprocess(self, image):
+        
+        preproc_img = mri_preprocess(image)
+        img_emb, _ = self.model.encode_img(preproc_img)
         
         return img_emb
         
@@ -64,7 +101,36 @@ class ReportGenerationPipeline(Pipeline):
         else:
             return img_emb
     
-    def forward(self, model_input, **generate_kwargs):
+    def _forward(self, model_input, **generate_kwargs):
         
+        image = model_input[0]
+        prompt = model_input[1]
+        img_emb = self.preprocess(image)
+        input_emb = self.get_mixed_emb(prompt, img_emb)
+        outputs = model.llama_model.generate(
+            inputs_embeds=input_emb, 
+            max_new_tokens=max_new_tokens,
+            stopping_criteria=stopping_criteria,
+            num_beams=num_beams,
+            do_sample=True,
+            min_length=min_length,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            length_penalty=length_penalty,
+            temperature=temperature,
+        )
+        
+        return 
+        
+        output_token = outputs[0]
+        if output_token[0] == 0:  # the model might output a unknow token <unk> at the beginning. remove it
+            output_token = output_token[1:]
+        if output_token[0] == 1:  # some users find that there is a start token <s> at the beginning. remove it
+            output_token = output_token[1:]
+        output_text = model.llama_tokenizer.decode(output_token, add_special_tokens=False)
+        output_text = output_text.split('###')[0]  # remove the stop sign '###'
+        output_text = output_text.split('Assistant:')[-1].strip()
+        
+        return output_text 
         
         

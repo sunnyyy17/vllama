@@ -1,5 +1,5 @@
 model:
-  arch: mini_gpt4_ita
+  arch: vllama_ita
   model_type: pretrain_vicuna
   freeze_vit: True
   freeze_qformer: True
@@ -7,17 +7,17 @@ model:
   end_sym: "###"
   low_resource: True
   device_8bit: 2
-  prompt_path: "prompts/alignment.txt"
+  prompt_path: "../prompts/alignment_brain.txt"
   prompt_template: '###Human: {} ###Assistant: '
-  ckpt: '/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_3.pth' #'/path/to/pretrained/ckpt/'
+  ckpt: '/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
   vit_path: '/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/rectal_dino_nosolar_noflipjitter1_checkpoint0010.pth'
-  lora_r: 32
+  lora_r: 64
   lora_target_modules: ["q_proj","v_proj"]
   lora_alpha: 16
   lora_dropout: 0.05
 
 datasets:
-  cc_sbu_align:
+  brain-mri-3d:
     vis_processor:
       train:
         name: "blip2_image_eval"

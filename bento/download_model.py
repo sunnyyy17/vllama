@@ -1,6 +1,7 @@
 import logging
 import sys
 import os
+import argparse
 #from omegaconf import OmegaConf
 import torch
 import bentoml
@@ -8,12 +9,14 @@ import bentoml
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from vllama.common.config import Config
+from vllama.common.registry import registry
 from vllama.models.vllamaita import vllamaIta
 from custom_pipeline import ReportGenerationPipeline
 #from vqmodel_wrapper import VQModelDecoderWrapper, VQModelEncoderWrapper
 #from custom_pipeline import InstructionTextGenerationPipeline
 
 from transformers.pipelines import SUPPORTED_TASKS
+from transformers import StoppingCriteria, StoppingCriteriaList
 import matplotlib.pyplot as plt
 from PIL import Image
 import torchvision.transforms as T
@@ -24,7 +27,7 @@ print("start")
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Demo")
+    parser = argparse.ArgumentParser(description="Bento Model Generation")
     parser.add_argument("--cfg-path", required=True, help="path to configuration file.")
     parser.add_argument("--gpu-id", type=int, default=0, help="specify the gpu to load the model.")
     parser.add_argument(
@@ -59,9 +62,34 @@ TASK_DEFINITION = {
 SUPPORTED_TASKS[TASK_NAME] = TASK_DEFINITION
 
 
+class StoppingCriteriaSub(StoppingCriteria):
+
+    def __init__(self, stops=[], encounters=1):
+        super().__init__()
+        self.stops = stops
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor):
+        for stop in self.stops:
+            if torch.all((stop == input_ids[0][-len(stop):])).item():
+                return True
+
+        return False
+
+device = 'cuda'
+stop_words_ids = [torch.tensor([835]).to(device), torch.tensor([2277, 29937]).to(device)]
+stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_ids)])
+
 rrg = ReportGenerationPipeline(
     model=model,
     task="mri-rrg",
+    max_new_tokens=300,
+    stopping_criteria=stopping_criteria, 
+    num_beams=1,
+    min_length=1,
+    top_p=0.9,
+    repetition_penalty=1.0,
+    length_penalty=1,
+    temperature=1.0,
 )
 
 logging.basicConfig(level=logging.DEBUG)

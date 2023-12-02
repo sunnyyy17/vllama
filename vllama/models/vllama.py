@@ -20,7 +20,7 @@ from peft import (
 )
 
 
-@registry.register_model("mini_gpt4")
+@registry.register_model("vllama")
 class vllama(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.

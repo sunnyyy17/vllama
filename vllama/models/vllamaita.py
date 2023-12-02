@@ -38,7 +38,7 @@ def concat_all_gather(tensor):
 
 
 
-@registry.register_model("mini_gpt4_ita")
+@registry.register_model("vllama_ita")
 class vllamaIta(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.

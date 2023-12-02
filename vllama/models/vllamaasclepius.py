@@ -37,8 +37,8 @@ def concat_all_gather(tensor):
 
 
 
-@registry.register_model("mini_gpt4_ascl")
-class MiniGPT4Ascl(Blip2Base):
+@registry.register_model("vllama_ascl")
+class vllamaAscl(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.
     """

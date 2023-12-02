@@ -17,7 +17,6 @@ from vllama.models.vllamaita import vllamaIta
 from vllama.models.mini_gpt4_orig import vllamaOrig
 from vllama.models.vllama import vllama
 from vllama.models.vllamaasclepius import vllamaAscl
-from vllama.models.img_emb import ImageWrapEmbeddings
 from vllama.processors.base_processor import BaseProcessor
 
 
@@ -31,7 +30,6 @@ __all__ = [
     "vllamaOrig",
     "vllama",
     "vllamaAscl",
-    "ImageWrapEmbeddings"
 ]
 
 
