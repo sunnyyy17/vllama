@@ -16,7 +16,7 @@ from custom_pipeline import ReportGenerationPipeline
 #from custom_pipeline import InstructionTextGenerationPipeline
 
 from transformers.pipelines import SUPPORTED_TASKS
-from transformers import StoppingCriteria, StoppingCriteriaList
+#from transformers import StoppingCriteria, StoppingCriteriaList
 import matplotlib.pyplot as plt
 from PIL import Image
 import torchvision.transforms as T
@@ -29,7 +29,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 def parse_args():
     parser = argparse.ArgumentParser(description="Bento Model Generation")
     parser.add_argument("--cfg-path", required=True, help="path to configuration file.")
-    parser.add_argument("--gpu-id", type=int, default=0, help="specify the gpu to load the model.")
+    parser.add_argument("--gpu-id", type=int, default=1, help="specify the gpu to load the model.")
     parser.add_argument(
         "--options",
         nargs="+",
@@ -51,6 +51,16 @@ model.config = model_config
 print(model.config)
 print("initialize model start")
 
+model.eval()
+
+rrg = ReportGenerationPipeline(model=model, device='cuda:0')
+
+bentoml.pytorch.save_model(
+    "brain-mri-rrg",
+    rrg,
+)
+
+'''
 # mri-rrg
 TASK_NAME = "mri-rrg"
 TASK_DEFINITION = {
@@ -62,43 +72,18 @@ TASK_DEFINITION = {
 }
 SUPPORTED_TASKS[TASK_NAME] = TASK_DEFINITION
 
-
-class StoppingCriteriaSub(StoppingCriteria):
-
-    def __init__(self, stops=[], encounters=1):
-        super().__init__()
-        self.stops = stops
-
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor):
-        for stop in self.stops:
-            if torch.all((stop == input_ids[0][-len(stop):])).item():
-                return True
-
-        return False
-
-device = 'cuda'
-stop_words_ids = [torch.tensor([835]).to(device), torch.tensor([2277, 29937]).to(device)]
-stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_ids)])
-
 rrg = ReportGenerationPipeline(
     model=model,
     task="mri-rrg",
-    max_new_tokens=300,
-    stopping_criteria=stopping_criteria, 
-    num_beams=1,
-    min_length=1,
-    top_p=0.9,
-    repetition_penalty=1.0,
-    length_penalty=1,
-    temperature=1.0,
 )
 
 logging.basicConfig(level=logging.DEBUG)
 
 print("save model start")
-bentoml.transformers.save_model(
+bentoml.pytorch.save_model(
     "mri-rrg",
     pipeline=rrg,
     task_name=TASK_NAME,
     task_definition=TASK_DEFINITION,
 )
+'''
