@@ -1,19 +1,17 @@
 service: "service:svc"
 labels:
-  owner: bispl
+  owner: sunny17
   stage: demo
 include:
 - "*.py"
 exclude:
-- "tests/"
-- "locustfile.py"
 python:
   packages:
     - scikit-learn
     - torch
     - Pillow
     - transformers
-    - taming-transformers
+    - numpy
     - pydantic
     - torchvision
     - matplotlib

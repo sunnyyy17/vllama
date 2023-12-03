@@ -36,7 +36,7 @@ def mri_preprocess(np_img):
 
     try:
 
-        volume = np.load(np_img)
+        #volume = np.load(np_img)
 
         if volume.ndim != expected_dimensions:
             raise InvalidDimensionError(f"The file has incorrect dimensions: expected {expected_dimensions}, got {volume.ndim}")
