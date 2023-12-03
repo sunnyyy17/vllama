@@ -6,11 +6,11 @@ model:
   max_txt_len: 160
   end_sym: "###"
   low_resource: True
-  device_8bit: 1
+  device_8bit: 0
   prompt_path: "../prompts/alignment_brain.txt"
   prompt_template: '###Human: {} ###Assistant: '
-  ckpt: '/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
-  vit_path: '/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/rectal_dino_nosolar_noflipjitter1_checkpoint0010.pth'
+  ckpt: '/home/changsun/minigpt4/checkpoints/20231130031/checkpoint_2.pth' #'/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
+  vit_path: '/home/changsun/minigpt4/checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/rectal_dino_nosolar_noflipjitter1_checkpoint0010.pth'
   lora_r: 64
   lora_target_modules: ["q_proj","v_proj"]
   lora_alpha: 16

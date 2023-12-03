@@ -7,19 +7,19 @@ import csv
 import argparse
 nltk.download('punkt')
 from nltk.translate.bleu_score import sentence_bleu
-from rouge import Rouge
-from rouge import Rouge 
+#from rouge import Rouge
+#from rouge import Rouge 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
 from vllama.common.config import Config
 from vllama.common.dist_utils import get_rank
 from vllama.common.registry import registry
-from vllama.datasets.datasets.ct_datasets import rectalMRIDataset
+from vllama.datasets.datasets.ct_datasets import brainMRIDataset
 from transformers import StoppingCriteria, StoppingCriteriaList
 
-from vllama.models.mini_gpt4_ita_frozen import vllamaItaFrozen 
-from vllama.models.mini_gpt4_ita import vllamaIta
+#from vllama.models.vllama_ita_frozen import vllamaItaFrozen 
+#from vllama.models.vllama_ita import vllamaIta
 from torchmetrics.text.rouge import ROUGEScore
 from peft import (
     LoraConfig,
