@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import torch
+import torch.nn as nn
 import kornia
 #from transformers import Pipeline, AutoConfig
 from transformers import StoppingCriteria, StoppingCriteriaList
@@ -83,12 +84,12 @@ def mri_preprocess(np_img):
         raise e
 
 
-class ReportGenerationPipeline():
+class ReportGenerationPipeline(nn.Module):
 
-    def __init__(self, model, task, **kwargs):
+    def __init__(self, model, **kwargs):
+        super().__init__()
 
         self.model = model
-        self.task = task
         self.device = kwargs.get('device', 'cuda:1')
         self.default_params = {
             'max_new_tokens': kwargs.get('max_new_tokens', 300),
