@@ -42,7 +42,7 @@ def mri_preprocess(np_img):
         preproc_frames = np_img
 
         if preproc_frames.ndim != expected_dimensions:
-            raise InvalidDimensionError(f"The file has incorrect dimensions: expected {expected_dimensions}, got {volume.ndim}")
+            raise InvalidDimensionError(f"The file has incorrect dimensions: expected {expected_dimensions}, got {preproc_frames.ndim}")
         
         preproc_frames = preproc_frames.astype(np.float32)
         preproc_frames = torch.from_numpy(preproc_frames)
@@ -93,7 +93,7 @@ class ReportGenerationPipeline(nn.Module):
         super().__init__()
 
         self.model = model
-        self.device = kwargs.get('device', 'cuda:1')
+        self.device = kwargs.get('device', 'cuda:0')
         self.default_params = {
             'max_new_tokens': kwargs.get('max_new_tokens', 300),
             'num_beams': kwargs.get('num_beams', 1),
@@ -121,14 +121,16 @@ class ReportGenerationPipeline(nn.Module):
     def preprocess(self, image):
         
         preproc_img = mri_preprocess(image)
-        img_emb, _ = self.model.encode_img(preproc_img)
+        img_emb, _, _ = self.model.encode_img(preproc_img)
         
         return img_emb
         
     def get_mixed_emb(self, prompt, img_emb):
         
         if prompt:
+            print(prompt)
             prompt_segs = prompt.split('<ImageHere>')
+            print(prompt_segs)
             assert len(prompt_segs) == len(img_emb) + 1
             seg_tokens = [
                 self.model.llama_tokenizer(
@@ -139,7 +141,9 @@ class ReportGenerationPipeline(nn.Module):
             
             seg_embs = [self.model.llama_model.model.model.embed_tokens(seg_t) for seg_t in seg_tokens]
             #print('seg_embs.shape', seg_embs.shape)
-            wrapped_img_embs = torch.cat([seg_embs[:-1], img_emb, seg_embs[-1]], dim=1)
+            mixed_embs = [seg_embs[0], img_emb, seg_embs[1]]
+            #mixed_embs = mixed_embs.append(seg_embs[-1])
+            wrapped_img_embs = torch.cat(mixed_embs, dim=1)
             #mixed_embs = [emb for pair in zip(seg_embs[:-1], img_list) for emb in pair] + [seg_embs[-1]]
 
             return wrapped_img_embs
@@ -162,7 +166,7 @@ class ReportGenerationPipeline(nn.Module):
         prompt = model_input[1]
         img_emb = self.preprocess(image)
         input_emb = self.get_mixed_emb(prompt, img_emb)
-        outputs = model.llama_model.generate(
+        outputs = self.model.llama_model.generate(
             inputs_embeds=input_emb, 
             max_new_tokens=self.default_params['max_new_tokens'],
             stopping_criteria=self.default_params['stopping_criteria'],
@@ -180,7 +184,7 @@ class ReportGenerationPipeline(nn.Module):
             output_token = output_token[1:]
         if output_token[0] == 1:  # some users find that there is a start token <s> at the beginning. remove it
             output_token = output_token[1:]
-        output_text = model.llama_tokenizer.decode(output_token, add_special_tokens=False)
+        output_text = self.model.llama_tokenizer.decode(output_token, add_special_tokens=False)
         output_text = output_text.split('###')[0]  # remove the stop sign '###'
         output_text = output_text.split('Assistant:')[-1].strip()
         

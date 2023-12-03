@@ -17,7 +17,7 @@ import torch
 TARGET_IMAGE_SIZE = 256
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # for debugging purpose
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # for debugging purpose
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"  # for debugging purpose
 
 rrg_runner = bentoml.models.get("brain-mri-rrg:latest").to_runner()
 
@@ -38,16 +38,19 @@ class TextResponseDTO(BaseModel):
 )
 
 async def reportgen(query: str, img: np.ndarray) -> TextResponseDTO:
-    '''
-    c = img.size[3]
-    m = max(img.size)
     
-    if c != 3:
-        raise ValueError(f"Incorrect number of channels for MRI image processing")
+    
+    if img.ndim != 4:
+        raise ValueError(f"Incorrect number of dimensions for MRI image processing")
+
+    m = img.shape[2]
+    c = img.shape[3]
 
     if m < TARGET_IMAGE_SIZE:
-        raise ValueError(f"min dim for image {s} < {TARGET_IMAGE_SIZE}")
-    '''
+        raise ValueError(f"min dim for image {m} < {TARGET_IMAGE_SIZE}")
+    if c != 3:
+        raise ValueError(f"Incorrect number of channels for MRI image processing")
+    
     ###Prompt Generation
     img_tag = '<Img><ImageHere></Img>'
     prompt = img_tag + query

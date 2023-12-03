@@ -24,12 +24,12 @@ from custom_pipeline import ReportGenerationPipeline
 
 print("start")
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Bento Model Generation")
     parser.add_argument("--cfg-path", required=True, help="path to configuration file.")
-    parser.add_argument("--gpu-id", type=int, default=1, help="specify the gpu to load the model.")
+    parser.add_argument("--gpu-id", type=int, default=0, help="specify the gpu to load the model.")
     parser.add_argument(
         "--options",
         nargs="+",
@@ -53,37 +53,9 @@ print("initialize model start")
 
 model.eval()
 
-rrg = ReportGenerationPipeline(model=model, device='cuda:0')
+rrg = ReportGenerationPipeline(model=model, device='cuda:{}'.format(args.gpu_id))
 
 bentoml.pytorch.save_model(
     "brain-mri-rrg",
     rrg,
 )
-
-'''
-# mri-rrg
-TASK_NAME = "mri-rrg"
-TASK_DEFINITION = {
-    "impl": ReportGenerationPipeline,
-    "tf": (),
-    "pt": (),
-    "default": {},
-    "type": "rrg",
-}
-SUPPORTED_TASKS[TASK_NAME] = TASK_DEFINITION
-
-rrg = ReportGenerationPipeline(
-    model=model,
-    task="mri-rrg",
-)
-
-logging.basicConfig(level=logging.DEBUG)
-
-print("save model start")
-bentoml.pytorch.save_model(
-    "mri-rrg",
-    pipeline=rrg,
-    task_name=TASK_NAME,
-    task_definition=TASK_DEFINITION,
-)
-'''
