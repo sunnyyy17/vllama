@@ -65,7 +65,7 @@ class vllamaIta(Blip2Base):
         max_txt_len=64,
         end_sym='\n',
         low_resource=True,  # use 8 bit and put vit in cpu =
-        device_8bit=0,  # the device of 8bit model should be set when loading and cannot be changed anymore.
+        device_8bit=2,  # the device of 8bit model should be set when loading and cannot be changed anymore.
         vit_path = "/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_imgnet_pretrained/checkpoint0095.pth",
         lora_r = 0, 
         lora_target_modules=["q_proj","v_proj"],
@@ -191,7 +191,7 @@ class vllamaIta(Blip2Base):
             )
         
         self.llama_model_device = self.llama_model.device
-        
+        print('llama_model device', self.llama_model_device)
         if lora_r > 0:
             self.llama_model = prepare_model_for_int8_training(self.llama_model)
             loraconfig = LoraConfig(
@@ -228,7 +228,7 @@ class vllamaIta(Blip2Base):
             #print('name:', name, 'param type', param.type)
             param.requires_grad = False
         '''
-
+        
         #self.z_embed = nn.Parameter(torch.zeros(1, self.args.z_length, 1, vision_width))
         #self.z_embed_m = nn.Parameter(torch.zeros(1, self.args.z_length, 1, vision_width))
         ###TODO - FIX QFormer Alignment self.llama_proj
@@ -344,7 +344,6 @@ class vllamaIta(Blip2Base):
                     #print(type(model_pair[0]).__name__, sum_param)
                     #print(type(model_pair[1]).__name__, sum_param_m)
             
-            
             '''
             try:
                 for param, param_m in zip(model_pair[0].parameters(), model_pair[1].parameters()):
@@ -366,7 +365,7 @@ class vllamaIta(Blip2Base):
             ###CTSEG-3D-PROCESSING
             #print('image.shape', image.shape)
             #image_embeds = []
-            #print(image )
+            #print(image)
             '''
             for idx in range(image.shape[1]):
                 slice = image[0][idx]
@@ -383,6 +382,7 @@ class vllamaIta(Blip2Base):
                     image_embeds = slice_embeds
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
             '''
+
             for idx in range(image.shape[0]):
                 
                 if idx < 5:
@@ -397,30 +397,23 @@ class vllamaIta(Blip2Base):
                 #slice = torch.unsqueeze(slice, dim=0)
                 #slice_image = torch.cat((slice, slice, slice), dim=0)
                 slice_image = torch.unsqueeze(slice, dim=0)
-                #print('slice_image.shape', slice_image.shape)
                 slice_embeds = self.visual_encoder(slice_image).to(self.llama_model_device)
-                #print(slice_embeds.shape)
-                #print('slice embeds.shape', slice_embeds.shape)
+                
                 if idx == 5:
                     image_embeds = slice_embeds
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
-            #print('image_embeds.shape', image_embeds.shape)
+            
             image_embeds = image_embeds.to(self.llama_model_device)
             image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
             
-            #print("image_embeds.shape", image_embeds.shape)
-            #print('image_embeds device', image_embeds.device)
             image_embeds = self.qform_proj_chz(image_embeds)
-            #print('qform_aligned image_embeds.shape', image_embeds.shape)
+            
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
-            #print("image_atts.shape", image_atts.shape)
-            #print("self.query_tokens.shape", self.query_tokens.shape)
-            
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-            #print("query_tokens.shape", query_tokens.shape)
+           
             
             if query_true:
                 query_output = self.Qformer.bert(
@@ -430,7 +423,7 @@ class vllamaIta(Blip2Base):
                     return_dict=True,
                 )
                 inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
-                #print("inputs_llama.shape", inputs_llama.shape)
+                
                 atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             else:
                 query_output = self.Qformer_m.bert(
@@ -441,12 +434,8 @@ class vllamaIta(Blip2Base):
                 )
                 
                 inputs_llama = self.llama_proj_chz_m(query_output.last_hidden_state)
-                #print("inputs_llama.shape", inputs_llama.shape)
+                
                 atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(self.llama_model_device)
-            
-            #print("query_output.shape", query_output.shape)
-            #print("query_output.last_hidden_state", query_output.last_hidden_state.shape)
-            #print('query max, min', query_output.last_hidden_state.max(), query_output.last_hidden_state.min())
 
         ###FOR VISION ENCODER + FFN/LINEAR LAYER Only
         '''
@@ -484,15 +473,10 @@ class vllamaIta(Blip2Base):
     def forward(self, samples):
         with torch.no_grad():
             self.temp.clamp_(0.001, 0.5)
-        #image = samples["image"]
-        #image = samples["image"]
-        ###FOR CT
-        #print(samples[0].shape, samples[1])
         
-        image = samples[0].to(self.llama_model_device)
+        image = samples[0]#.to(self.llama_model_device)
         text = samples[1]#.to(self.llama_model_device)
-        #print(image.shape)
-        #print(text)
+        
         bs, ds, c, h, w = image.size()
         #bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
@@ -509,7 +493,6 @@ class vllamaIta(Blip2Base):
     
         self.llama_tokenizer.padding_side = "right"
         
-        #print('img_embeds.shape', img_embeds.shape)
         #img_embeds = img_embeds + self.interpolate_pos_encoding(self.z_embed, img_embeds)
         
         ###==========Image-Text Alignment===============###
@@ -521,8 +504,7 @@ class vllamaIta(Blip2Base):
             padding="longest",
             truncation=True,
             max_length=self.max_txt_len).to(self.llama_model_device)
-        #print(txt_tokens.device)
-        #print(self.llama_model_device)
+        
         #txt_atts = torch.ones(txt_tokens.input_ids.size()[:-1], dtype=torch.long).to(self.llama_model_device)
         txt_output = self.Qformer.bert(
                     input_ids= txt_tokens.input_ids,
@@ -672,7 +654,7 @@ class vllamaIta(Blip2Base):
         freeze_vit = cfg.get("freeze_vit", True)
         freeze_qformer = cfg.get("freeze_qformer", True)
         low_resource = cfg.get("low_resource", False)
-        device_8bit = cfg.get("device_8bit", 1)
+        device_8bit = cfg.get("device_8bit", 2)
         vit_path = cfg.get("vit_path")
         lora_r = cfg.get("lora_r")
         lora_target_modules = cfg.get("lora_target_modules")

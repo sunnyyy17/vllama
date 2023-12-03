@@ -4,7 +4,6 @@
 *.jpg
 *.png
 *.jpeg
-*.txt
 *.slurm
 *.err
 *.out
@@ -13,3 +12,4 @@
 *train.yaml
 /output
 /outputs
+*.pdf
