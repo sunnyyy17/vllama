@@ -33,7 +33,7 @@ class TextResponseDTO(BaseModel):
 
 # ImageToText
 @svc.api(
-    input=Multipart(query=Text(), img=NumpyNdarray)),
+    input=Multipart(query=Text(), img=NumpyNdarray()),
     output=JSON(pydantic_model=TextResponseDTO),
 )
 
@@ -54,8 +54,7 @@ async def reportgen(query: str, img: np.ndarray) -> TextResponseDTO:
     model_input = (img, prompt)
 
     ###Report Generation
-    image_indices = await rrg_runner.async_run(model_input, )
-    answer = await llm_runner.async_run((query, image_indices), max_new_tokens=200)
+    answer = await rrg_runner.async_run(model_input, max_new_tokens=200)
     return TextResponseDTO(
         answer=answer,
     )

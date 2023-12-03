@@ -6,7 +6,7 @@ model:
   max_txt_len: 160
   end_sym: "###"
   low_resource: True
-  device_8bit: 2
+  device_8bit: 1
   prompt_path: "../prompts/alignment_brain.txt"
   prompt_template: '###Human: {} ###Assistant: '
   ckpt: '/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'

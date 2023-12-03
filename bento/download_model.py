@@ -1,26 +1,26 @@
-import logging
+#import logging
 import sys
 import os
 import argparse
 #from omegaconf import OmegaConf
-import torch
+#import torch
 import bentoml
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from vllama.common.config import Config
 from vllama.common.registry import registry
-from vllama.models.vllamaita import vllamaIta
+#from vllama.models.vllamaita import vllamaIta
 from custom_pipeline import ReportGenerationPipeline
 #from vqmodel_wrapper import VQModelDecoderWrapper, VQModelEncoderWrapper
 #from custom_pipeline import InstructionTextGenerationPipeline
 
-from transformers.pipelines import SUPPORTED_TASKS
+#from transformers.pipelines import SUPPORTED_TASKS
 #from transformers import StoppingCriteria, StoppingCriteriaList
-import matplotlib.pyplot as plt
-from PIL import Image
-import torchvision.transforms as T
-import torchvision.transforms.functional as TF
+#import matplotlib.pyplot as plt
+#from PIL import Image
+#import torchvision.transforms as T
+#import torchvision.transforms.functional as TF
 
 print("start")
 

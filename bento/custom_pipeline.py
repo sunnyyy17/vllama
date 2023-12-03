@@ -37,8 +37,11 @@ def mri_preprocess(np_img):
     try:
 
         #volume = np.load(np_img)
+        
+        expected_dimensions=4
+        preproc_frames = np_img
 
-        if volume.ndim != expected_dimensions:
+        if preproc_frames.ndim != expected_dimensions:
             raise InvalidDimensionError(f"The file has incorrect dimensions: expected {expected_dimensions}, got {volume.ndim}")
         
         preproc_frames = preproc_frames.astype(np.float32)
@@ -126,7 +129,7 @@ class ReportGenerationPipeline(nn.Module):
         
         if prompt:
             prompt_segs = prompt.split('<ImageHere>')
-            assert len(prompt_segs) == len(image_emb) + 1
+            assert len(prompt_segs) == len(img_emb) + 1
             seg_tokens = [
                 self.model.llama_tokenizer(
                     seg, return_tensors="pt", add_special_tokens=i == 0).to(self.device).input_ids
