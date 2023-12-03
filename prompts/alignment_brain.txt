@@ -1,0 +1,4 @@
+<Img><ImageHere></Img> This is a volumetric brain MRI scan showing abnormalities. Diagnose this patient with this MRI scan. 
+<Img><ImageHere></Img> Diagnose this volumetric brain MRI image with potential tumors. 
+<Img><ImageHere></Img> Provide a detailed description of this volumetric brain MRI.
+<Img><ImageHere></Img> Could you describe what this volumetric brain MRI show?
