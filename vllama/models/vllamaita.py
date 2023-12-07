@@ -1,6 +1,7 @@
 import logging
 import random
 
+import os
 import torch
 from torch.cuda.amp import autocast as autocast
 import torch.nn as nn
@@ -21,7 +22,8 @@ from peft import (
     prepare_model_for_int8_training,
 )
 
-
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 @torch.no_grad()
 def concat_all_gather(tensor):
@@ -407,7 +409,9 @@ class vllamaIta(Blip2Base):
             image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
-            
+            #print('image_embeds.device', image_embeds.device)
+            #print(self.llama_model_device)
+            image_embeds = image_embeds.to(self.llama_model_device)
             image_embeds = self.qform_proj_chz(image_embeds)
             
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
@@ -693,7 +697,8 @@ class vllamaIta(Blip2Base):
             lora_dropout=lora_dropout,
             temp=temp,
             alpha=alpha,
-            momentum=momentum
+            momentum=momentum,
+            queue_size=queue_size
         )
 
         ckpt_path = cfg.get("ckpt", "")  # load weights of MiniGPT-4

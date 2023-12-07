@@ -38,7 +38,7 @@ class BaseDatasetBuilder:
             self.config = cfg
 
         self.data_type = self.config.data_type
-
+        
         self.vis_processors = {"train": BaseProcessor(), "eval": BaseProcessor()}
         self.text_processors = {"train": BaseProcessor(), "eval": BaseProcessor()}
 
@@ -225,7 +225,7 @@ class BaseDatasetBuilder:
                 ann_paths=ann_paths,
                 vis_root=vis_path,
             )
-
+        
         return datasets
 
 

@@ -162,7 +162,9 @@ class RunnerBase:
 
             if iters_per_epoch is None:
                 try:
+                    print('self.dataloaders', self.dataloaders)
                     iters_per_epoch = len(self.dataloaders['train'])
+                    print('iters_per_epoch', iters_per_epoch)
                 except (AttributeError, TypeError):
                     iters_per_epoch = 10000
             
@@ -246,17 +248,18 @@ class RunnerBase:
             
             # create dataloaders
             split_names = sorted(self.datasets.keys())
-            
+            print('split_names', split_names)
             datasets = [self.datasets[split] for split in split_names]
             is_trains = [split in self.train_splits for split in split_names]
-
+            print(is_trains)
+            print(self.train_splits)
             batch_sizes = [
                 self.config.run_cfg.batch_size_train
                 if split == "train"
                 else self.config.run_cfg.batch_size_eval
                 for split in split_names
             ]
-
+            
             collate_fns = []
             for dataset in datasets:
                 if isinstance(dataset, tuple) or isinstance(dataset, list):
@@ -321,7 +324,7 @@ class RunnerBase:
 
         if len(train_splits) == 0:
             logging.info("Empty train splits.")
-
+        
         return train_splits
 
     @property
@@ -382,17 +385,17 @@ class RunnerBase:
             if len(self.valid_splits) > 0:
                 for split_name in self.valid_splits:
                     logging.info("Evaluating on {}.".format(split_name))
-
+                    
                     val_log = self.eval_epoch(
                         split_name=split_name, cur_epoch=cur_epoch
                     )
                     if val_log is not None:
                         if is_main_process():
                             assert (
-                                "agg_metrics" in val_log
-                            ), "No agg_metrics found in validation log."
+                                "ROUGE-L" in val_log
+                            ), "No metrics found in validation log."
 
-                            agg_metrics = val_log["agg_metrics"]
+                            agg_metrics = val_log["Rouge-L"]
                             if agg_metrics > best_agg_metric and split_name == "val":
                                 best_epoch, best_agg_metric = cur_epoch, agg_metrics
 
@@ -400,7 +403,7 @@ class RunnerBase:
 
                             val_log.update({"best_epoch": best_epoch})
                             self.log_stats(val_log, split_name)
-
+            
             else:
                 # if no validation split is provided, we just save the checkpoint at the end of each epoch.
                 if not self.evaluate_only:
@@ -495,19 +498,23 @@ class RunnerBase:
         if not skip_reload and cur_epoch == "best":
             model = self._reload_best_model(model)
         model.eval()
-
+        '''
         self.task.before_evaluation(
             model=model,
             dataset=self.datasets[split_name],
         )
+        '''
         results = self.task.evaluation(model, data_loader)
-
-        if results is not None:
+        
+        return results
+        #if results is not None:
+        '''
             return self.task.after_evaluation(
                 val_result=results,
                 split_name=split_name,
                 epoch=cur_epoch,
             )
+        '''
             
     
     def unwrap_dist_model(self, model):
@@ -610,10 +617,12 @@ class RunnerBase:
             k: v.requires_grad for (k, v) in model_no_ddp.named_parameters()
         }
         state_dict = model_no_ddp.state_dict()
+        
         for k in list(state_dict.keys()):
             if k in param_grad_dic.keys() and not param_grad_dic[k]:
                 # delete parameters that do not require gradient
                 del state_dict[k]
+        
         save_obj = {
             "model": state_dict,
             "optimizer": self.optimizer.state_dict(),

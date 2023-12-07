@@ -5,31 +5,36 @@
  For full license text, see the LICENSE_Lavis file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 """
 
-import argparse
 import os
+
+os.environ["CUDA_LAUNCH_BLOCKING"] = "0" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+
+import argparse
 import random
 
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 
-import minigpt4.tasks as tasks
-from minigpt4.common.config import Config
-from minigpt4.common.dist_utils import get_rank, init_distributed_mode
-from minigpt4.common.logger import setup_logger
-from minigpt4.common.optims import (
+import vllama.tasks as tasks
+from vllama.common.config import Config
+from vllama.common.dist_utils import get_rank, init_distributed_mode
+from vllama.common.logger import setup_logger
+from vllama.common.optims import (
     LinearWarmupCosineLRScheduler,
     LinearWarmupStepLRScheduler,
 )
-from minigpt4.common.registry import registry
-from minigpt4.common.utils import now
+from vllama.common.registry import registry
+from vllama.common.utils import now
 
 # imports modules for registration
-from minigpt4.datasets.builders import *
-from minigpt4.models import *
-from minigpt4.processors import *
-from minigpt4.runners import *
-from minigpt4.tasks import *
+from vllama.datasets.builders import *
+from vllama.models import *
+from vllama.processors import *
+from vllama.runners import *
+from vllama.tasks import *
+
 
 
 def parse_args():
@@ -77,6 +82,12 @@ def main():
     #os.environ['MASTER_ADDR'] = '127.0.0.2'
     #os.environ['MASTER_PORT'] = '39500'
     # set before init_distributed_mode() to ensure the same job_id shared across all ranks.
+    #os.environ["CUDA_LAUNCH_BLOCKING"] = "0" 
+    #os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+    print(torch.cuda.is_available())
+    print(torch.cuda.device_count())
+    print(torch.cuda.get_device_name(0))
+
     job_id = now()
 
     cfg = Config(parse_args())
@@ -93,7 +104,7 @@ def main():
     task = tasks.setup_task(cfg)
     datasets = task.build_datasets(cfg)
     model = task.build_model(cfg)
-
+    print(datasets.keys())
     runner = get_runner_class(cfg)(
         cfg=cfg, job_id=job_id, task=task, model=model, datasets=datasets
     )

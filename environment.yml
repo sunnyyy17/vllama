@@ -60,4 +60,7 @@ dependencies:
     - notebook
     - gradio==3.24.1
     - gradio-client==0.0.8
+    - kornia==0.7.0
+    - h5py==3.10.0
+    - nibabel==5.1.0
     - wandb

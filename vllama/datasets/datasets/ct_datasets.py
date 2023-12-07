@@ -85,7 +85,7 @@ class CTDataset(object):
             for subject in self.subject_list:
                 ID = subject.split('/')[-1]
                 d_frame = self.csv.loc[self.csv.path == 'rsna/train/{}'.format(ID)]
-
+                
                 EDH = int(d_frame['epidural'].values)
                 IPH = int(d_frame['intraparenchymal'].values)
                 IVH = int(d_frame['intraventricular'].values)
