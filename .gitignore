@@ -7,7 +7,8 @@
 *.slurm
 *.err
 *.out
-*.yaml
+vllama.yaml
+*defaults.yaml
 *eval.yaml
 *train.yaml
 /vllama/output/
