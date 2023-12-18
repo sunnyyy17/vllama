@@ -1,0 +1,7 @@
+version: 1
+api_server:
+  workers: 4
+runners:
+  rrg_runner:
+    resources:
+      nvidia.com/gpu: [0]
