@@ -10,6 +10,7 @@
 *.yaml
 *eval.yaml
 *train.yaml
+/vllama/output/
 /output
 /outputs
 /minigpt4/
