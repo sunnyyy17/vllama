@@ -162,11 +162,11 @@ class RunnerBase:
 
             if iters_per_epoch is None:
                 try:
-                    print('self.dataloaders', self.dataloaders)
+                    print('self.dataloaders', self.dataloaders['train'])
                     iters_per_epoch = len(self.dataloaders['train'])
                     print('iters_per_epoch', iters_per_epoch)
                 except (AttributeError, TypeError):
-                    iters_per_epoch = 10000
+                    iters_per_epoch = 5
             
             self._lr_sched = lr_sched_cls(
                 optimizer=self.optimizer,
@@ -190,7 +190,7 @@ class RunnerBase:
         chain wds.DataPipe datasets separately. Training set becomes a tuple
         (ConcatDataset, ChainDataset), both are optional but at least one of them is
         required. The resultant ConcatDataset and ChainDataset will be sampled evenly.
-
+        
         If train_dataset_ratio is provided, create a MultiIterLoader to sample
         each dataset by ratios during training.
 
@@ -208,13 +208,14 @@ class RunnerBase:
             logging.info(
                 "dataset_ratios not specified, datasets will be concatenated (map-style datasets) or chained (webdataset.DataPipeline)."
             )
-            
-            datasets = reorg_datasets_by_split(self.datasets)
-            self.datasets = datasets
+            #print('self.datasets.keys()', self.datasets.keys())
+            #datasets = reorg_datasets_by_split(self.datasets)
+            #self.datasets = datasets
             # self.datasets = concat_datasets(datasets)
-            
+            print('self.datasets.keys()', self.datasets.keys())
             # print dataset statistics after concatenation/chaining
             for split_name in self.datasets:
+                print('split_name datasets', split_name)
                 if isinstance(self.datasets[split_name], tuple) or isinstance(
                     self.datasets[split_name], list
                 ):
@@ -247,12 +248,24 @@ class RunnerBase:
                     )
             
             # create dataloaders
-            split_names = sorted(self.datasets.keys())
-            print('split_names', split_names)
-            datasets = [self.datasets[split] for split in split_names]
+            split_dnames = sorted(self.datasets.keys())
+            print('before split_names: ', split_dnames)
+            split_names = []
+            for split, dataset in self.datasets.items():
+                for tv_split in self.datasets[split]:
+                    split_names.append(tv_split) 
+            
+            print('split_tval_create dataloaders', split_names)
+            
+            datasets = {}
+            
+            for split in split_names:
+                print('split in split_names: ', split)
+                datasets[split]  = [self.datasets[name][split] for name in self.datasets.keys()]
+            #datasets = [self.datasets[split] for split in split_names]
             is_trains = [split in self.train_splits for split in split_names]
-            print(is_trains)
-            print(self.train_splits)
+            print('is_trains', is_trains)
+            print('self.train_splits', self.train_splits)
             batch_sizes = [
                 self.config.run_cfg.batch_size_train
                 if split == "train"
@@ -276,6 +289,7 @@ class RunnerBase:
             )
 
             self._dataloaders = {k: v for k, v in zip(split_names, dataloaders)}
+        
         return self._dataloaders
     
     @property
@@ -350,13 +364,13 @@ class RunnerBase:
 
     def setup_output_dir(self):
         lib_root = Path(registry.get_path("library_root"))
-
+        
         output_dir = lib_root / self.config.run_cfg.output_dir / self.job_id
         result_dir = output_dir / "result"
 
         output_dir.mkdir(parents=True, exist_ok=True)
         result_dir.mkdir(parents=True, exist_ok=True)
-
+        
         registry.register_path("result_dir", str(result_dir))
         registry.register_path("output_dir", str(output_dir))
 
@@ -389,6 +403,7 @@ class RunnerBase:
                     val_log = self.eval_epoch(
                         split_name=split_name, cur_epoch=cur_epoch
                     )
+                    print(val_log)
                     if val_log is not None:
                         if is_main_process():
                             assert (
@@ -400,7 +415,7 @@ class RunnerBase:
                                 best_epoch, best_agg_metric = cur_epoch, agg_metrics
 
                                 self._save_checkpoint(cur_epoch, is_best=True)
-
+                            
                             val_log.update({"best_epoch": best_epoch})
                             self.log_stats(val_log, split_name)
             
@@ -490,8 +505,10 @@ class RunnerBase:
                 During testing, we will use provided weights and skip reloading the best checkpoint .
         """
         data_loader = self.dataloaders.get(split_name, None)
-        assert data_loader, "data_loader for split {} is None.".format(split_name)
+        print('split_name', split_name)
         
+        assert data_loader, "data_loader for split {} is None.".format(split_name)
+        print(data_loader)
         # TODO In validation, you need to compute loss as well as metrics
         # TODO consider moving to model.before_evaluation()
         model = self.unwrap_dist_model(self.model)
@@ -586,7 +603,7 @@ class RunnerBase:
             return loader
 
         loaders = []
-
+        
         for dataset, bsz, is_train, collate_fn in zip(
             datasets, batch_sizes, is_trains, collate_fns
         ):
@@ -602,9 +619,9 @@ class RunnerBase:
                 )
             else:
                 loader = _create_loader(dataset, num_workers, bsz, is_train, collate_fn)
-
+                
             loaders.append(loader)
-
+        
         return loaders
 
     @main_process

@@ -112,9 +112,12 @@ def reorg_datasets_by_split(datasets):
     reorg_datasets = dict()
     
     # reorganize by split
-    for _, dataset in datasets.items():
+    for name, dataset in datasets.items():
+        print('dataset:', name)
         for split_name, dataset_split in dataset.items():
+            print('split_name in reorg:', split_name)
             if split_name not in reorg_datasets:
+                #print('split_name in reorg:', split_name)
                 reorg_datasets[split_name] = [dataset_split]
             else:
                 reorg_datasets[split_name].append(dataset_split)

@@ -623,7 +623,7 @@ class vllamaIta(Blip2Base):
         
         to_regress_embeds = self.llama_model.model.model.embed_tokens(to_regress_tokens.input_ids)
         #to_regress_embeds = self.llama_model.embed_tokens(to_regress_tokens.input_ids)
-
+        
         to_regress_embeds = to_regress_embeds.repeat(img_embeds.shape[0]//to_regress_embeds.shape[0], 1, 1)
         
         #img_embeds = img_embeds / 10

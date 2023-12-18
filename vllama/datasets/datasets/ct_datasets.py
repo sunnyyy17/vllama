@@ -331,7 +331,7 @@ class rectalMRIDataset(data.Dataset):
         
         self.subject_list = sorted(self.subject_list)
 
-        print(len(self.subject_list))
+        #print(len(self.subject_list))
         for idx, item in enumerate(self.subject_list):
             if 'SURVEY' in item:
                 _ = self.subject_list.pop(idx)

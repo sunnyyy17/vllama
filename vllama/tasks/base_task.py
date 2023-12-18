@@ -104,6 +104,8 @@ class BaseTask:
     
     def train_step(self, model, samples):
         #with profile(activities=[ProfilerActivity.CPU], profile_memory=True, record_shapes=True) as prof:
+        print('samples', samples)
+        print('samples[0]', samples[0])
         loss = model(samples)["loss"]
         #print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
         print('loss:', loss)
@@ -189,12 +191,12 @@ class BaseTask:
             total_bleu_four += bleu_score
             #total_rouge_l_prec += rouge_score['rougeL_precision']
             #total_rouge_l_rec += rouge_score['rougeL_recall']
-            total_rouge_l_f += rouge_score['rougeL_fmeasure']
+            #total_rouge_l_f += rouge_score['rougeL_fmeasure']
         
         avg_bleu_four = total_bleu_four / len(data_loader)
         #avg_rouge_l_prec = total_rouge_l_prec / len(data_loader)
         #avg_rouge_l_rec = total_rouge_l_rec / len(data_loader)
-        avg_rouge_l_f = total_rouge_l_f / len(data_loader)
+        #avg_rouge_l_f = total_rouge_l_f / len(data_loader)
         
         
         results['answer'] = output_text 
@@ -206,7 +208,7 @@ class BaseTask:
             dist.barrier()
         
         return results
-
+    
     def train_epoch(
         self,
         epoch,
@@ -338,13 +340,18 @@ class BaseTask:
             if i >= iters_per_epoch:
                 break
             
-            samples = next(data_loader)
+            
+            print('data_loader', data_loader)
+            print('len(data_loader)', len(data_loader))
+            print('data_loader[0]', data_loader[0])
+            samples = next(data_loader[0])
             
             samples = prepare_sample(samples, cuda_enabled=cuda_enabled)
             #print(type(samples))
             #print('len :', len(samples))
             #print(samples[0].shape)
             #print(print(samples[1]))
+            
             '''
             samples.update(
                 {
