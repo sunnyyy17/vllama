@@ -12,6 +12,7 @@
 *train.yaml
 /output
 /outputs
+/minigpt4/
 *.pdf
 *.md
 *copy.py
