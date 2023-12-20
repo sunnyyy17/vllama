@@ -162,11 +162,12 @@ class RunnerBase:
 
             if iters_per_epoch is None:
                 try:
-                    print('self.dataloaders', self.dataloaders['train'])
+                    print('for length self.dataloaders', self.dataloaders['train'])
+                    print('len()', self.dataloaders["train"])
                     iters_per_epoch = len(self.dataloaders['train'])
                     print('iters_per_epoch', iters_per_epoch)
                 except (AttributeError, TypeError):
-                    iters_per_epoch = 5
+                    iters_per_epoch = 10
             
             self._lr_sched = lr_sched_cls(
                 optimizer=self.optimizer,
@@ -251,8 +252,7 @@ class RunnerBase:
             split_dnames = sorted(self.datasets.keys())
             print('before split_names: ', split_dnames)
             split_names = []
-            for split, dataset in self.datasets.items():
-                for tv_split in self.datasets[split]:
+            for tv_split in self.datasets[split_dnames[0]]:
                     split_names.append(tv_split) 
             
             print('split_tval_create dataloaders', split_names)
@@ -274,7 +274,7 @@ class RunnerBase:
             ]
             
             collate_fns = []
-            for dataset in datasets:
+            for _, dataset in datasets.items():
                 if isinstance(dataset, tuple) or isinstance(dataset, list):
                     collate_fns.append([getattr(d, "collater", None) for d in dataset])
                 else:
@@ -287,14 +287,14 @@ class RunnerBase:
                 is_trains=is_trains,
                 collate_fns=collate_fns,
             )
-
+            
             self._dataloaders = {k: v for k, v in zip(split_names, dataloaders)}
         
         return self._dataloaders
     
     @property
     def cuda_enabled(self):
-        return self.device.type == "cuda:1"
+        return self.device.type == "cuda"
     
     @property
     def max_epoch(self):
@@ -595,21 +595,33 @@ class RunnerBase:
                     collate_fn=collate_fn,
                     drop_last=True if is_train else False,
                 )
-                loader = PrefetchLoader(loader)
-
+                #loader = PrefetchLoader(loader)
+                loader = IterLoader(loader, use_distributed=self.use_distributed)
+                '''
                 if is_train:
                     loader = IterLoader(loader, use_distributed=self.use_distributed)
-
+                '''
             return loader
 
         loaders = []
         
+        datasets_list= []
+        for _, tv_dataset in datasets.items():
+            datasets_list.append(tv_dataset)
+        
+        print('batch_sizes: ', batch_sizes)
+        print('is_trains: ', is_trains)
         for dataset, bsz, is_train, collate_fn in zip(
-            datasets, batch_sizes, is_trains, collate_fns
+            datasets_list, batch_sizes, is_trains, collate_fns
         ):
             if isinstance(dataset, list) or isinstance(dataset, tuple):
                 if hasattr(dataset[0], 'sample_ratio') and dataset_ratios is None:
                     dataset_ratios = [d.sample_ratio for d in dataset]
+                    print('dataset_ratios', dataset_ratios)
+                print('collate_fn:', collate_fn)
+                for d in dataset:
+                    print('dataset d:', d)
+                
                 loader = MultiIterLoader(
                     loaders=[
                         _create_loader(d, num_workers, bsz, is_train, collate_fn[i])
@@ -619,7 +631,7 @@ class RunnerBase:
                 )
             else:
                 loader = _create_loader(dataset, num_workers, bsz, is_train, collate_fn)
-                
+            
             loaders.append(loader)
         
         return loaders

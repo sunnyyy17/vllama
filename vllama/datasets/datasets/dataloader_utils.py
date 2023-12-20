@@ -36,6 +36,13 @@ class MultiIterLoader:
 
         self.loaders = loaders
         self.ratios = ratios
+
+    def __len__(self):
+        max_loader = 0 
+        for idx in range(len(self.loaders)):
+                max_loader += len(self.loaders[idx])
+
+        return max_loader
         
     def __next__(self):
         # random sample from each loader by ratio

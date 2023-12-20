@@ -104,8 +104,8 @@ class BaseTask:
     
     def train_step(self, model, samples):
         #with profile(activities=[ProfilerActivity.CPU], profile_memory=True, record_shapes=True) as prof:
-        print('samples', samples)
-        print('samples[0]', samples[0])
+        #print('samples', samples)
+        #print('samples[0]', samples[0])
         loss = model(samples)["loss"]
         #print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
         print('loss:', loss)
@@ -341,10 +341,10 @@ class BaseTask:
                 break
             
             
-            print('data_loader', data_loader)
-            print('len(data_loader)', len(data_loader))
-            print('data_loader[0]', data_loader[0])
-            samples = next(data_loader[0])
+            #print('data_loader', data_loader)
+            #print('len(data_loader)', len(data_loader))
+            #print('data_loader[0]', data_loader[0])
+            samples = next(data_loader)
             
             samples = prepare_sample(samples, cuda_enabled=cuda_enabled)
             #print(type(samples))
