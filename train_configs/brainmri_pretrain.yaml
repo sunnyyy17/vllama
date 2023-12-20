@@ -17,7 +17,7 @@ model:
   momentum: 0.995
   queue_size: 10
   end_sym: "###"
-  prompt_path: "prompts/alignment_brain.txt"
+  prompt_path: "prompts/alignment_multi.txt"
   prompt_template: '###Human: {} ###Assistant: '
   ckpt: #'/home/changsun/pretrained_minigpt4.pth'
 
