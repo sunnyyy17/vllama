@@ -411,7 +411,7 @@ class rectalMRIDataset(data.Dataset):
         #output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
         #torch.save(preproc_frames_cat, output_file_path)
         
-        return preproc_frames_cat, caption, patient_ID
+        return preproc_frames_cat, caption, "rectalMRI"
 
 class brainMRIDataset(data.Dataset):
     def __init__(self, img_path, txt_path, transform=None, is_train=True):
@@ -514,7 +514,7 @@ class brainMRIDataset(data.Dataset):
         #output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
         #torch.save(preproc_frames_cat, output_file_path)
         
-        return preproc_frames_cat, caption, patient_ID
+        return preproc_frames_cat, caption, "brainMRI"
 
 class ImgEmbedDataset(data.Dataset):
 

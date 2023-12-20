@@ -9,8 +9,6 @@
 *.out
 vllama.yaml
 *defaults.yaml
-*eval.yaml
-*train.yaml
 /vllama/output/
 /output
 /outputs

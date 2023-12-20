@@ -1,0 +1,72 @@
+model:
+  arch: vllama_ita
+  model_type: pretrain_vicuna
+  vit_model: "vit_small"
+  freeze_vit: True
+  freeze_qformer: True
+  low_resource: True
+  device_8bit: 0
+  vit_path: '/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth'
+  lora_r: 64
+  lora_target_modules: ["q_proj","v_proj"]
+  lora_alpha: 16
+  lora_dropout: 0.05
+  max_txt_len: 160
+  temp: 0.07
+  alpha: 0.04
+  momentum: 0.995
+  queue_size: 10
+  end_sym: "###"
+  prompt_path: "prompts/alignment_brain.txt"
+  prompt_template: '###Human: {} ###Assistant: '
+  ckpt: #'/home/changsun/pretrained_minigpt4.pth'
+
+datasets:
+  brain-mri-3d:
+    vis_processor: 
+      train:
+        name: "blip2_image_train"
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"
+    sample_ratio: 115
+  rectal-mri-3d:
+    vis_processor: 
+      train:
+        name: "blip2_image_train"
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"
+    sample_ratio: 115
+
+run:
+  task: image_text_pretrain
+  # optimizer
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr: 1e-4
+  min_lr: 8e-5
+  warmup_lr: 1e-6
+  
+  weight_decay: 0.05
+  max_epoch: 30
+  batch_size_train: 1
+  batch_size_eval: 1
+  num_workers: 16
+  warmup_steps: 5000
+  iters_per_epoch: 
+  
+  seed: 42
+  output_dir: "output/brain-tcga-dino-pmcllama-lora"
+  
+  amp: True
+  resume_ckpt_path: #'/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231130031/checkpoint_1.pth' #"/data/changsun/vllama_checkpoints/brainMRI_checkpoint/brain-tcgadino-proper-pmcllama-lora/20231127044/checkpoint_0.pth" #null
+  
+  evaluate: False   
+  train_splits: ["train"]
+  valid_splits: ["val"]
+  device: "cuda:0"
+  world_size: 1
+  dist_url: "env://"
+  distributed: Trues

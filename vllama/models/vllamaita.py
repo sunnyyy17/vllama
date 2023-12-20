@@ -480,7 +480,7 @@ class vllamaIta(Blip2Base):
         
         image = samples[0]#.to(self.llama_model_device)
         text = samples[1]#.to(self.llama_model_device)
-        
+        modality = samples[2]
         bs, ds, c, h, w = image.size()
         #bs, c, h, w = image.size()
         image = image.view(-1, c, h, w)
