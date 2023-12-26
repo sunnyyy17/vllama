@@ -115,12 +115,16 @@ class vllamaIta(Blip2Base):
         '''
         ###FOR DINO
         
-        self.visual_encoder =self.init_DINO_encoder(vit_model, vit_path, patch_size=16)
-
+        self.visual_encoder = self.init_DINO_encoder(vit_model, vit_path[0], patch_size=16)
+        self.visual_encoder_two = self.init_DINO_encoder(vit_model, vit_path[1], patch_size=16)
+        
         if freeze_vit:
             for name, param in self.visual_encoder.named_parameters():
                 param.requires_grad = False
+            for name, param in self.visual_encoder_two.named_parameters():
+                param.requires_grad = False
             logging.info("freeze vision encoder")
+        
         
         print('Loading VIT Done')
         
@@ -296,12 +300,24 @@ class vllamaIta(Blip2Base):
             print('Prompt Example \n{}'.format(random.choice(self.prompt_list)))
         else:
             self.prompt_list = []
+        
+        self.prompt_dict = {}
+        self.prompt_dict["brainMRI"] = []
+        self.prompt_dict["rectalMRI"] = []
+        for elem in self.prompt_list:
+            split_elem = elem.split(" ")
+            if "brain" in split_elem:
+                self.prompt_dict["brainMRI"].append(elem)
+            elif "rectal" in split_elem:
+                self.prompt_dict["rectalMRI"].append(elem)
     
     def vit_to_cpu(self):
         #self.ln_vision.to("cpu")
         #self.ln_vision.float()
         self.visual_encoder.to("cpu")
         self.visual_encoder.float()
+        self.visual_encoder_two.to("cpu")
+        self.visual_encoder_two.float()
         #self.Qformer.to("cpu")
         #self.visual_encoder.float()
     
@@ -315,7 +331,8 @@ class vllamaIta(Blip2Base):
 
         ptr = int(self.queue_ptr)
         #assert self.queue_size % batch_size == 0  # for simplicity
-        
+        #print('image_feats.shape', image_feats.shape)
+        #print('batch_size', batch_size)
         # replace the keys at ptr (dequeue and enqueue)
         self.image_queue[:, ptr:ptr + batch_size] = image_feats.T
         self.text_queue[:, ptr:ptr + batch_size] = text_feats.T
@@ -332,7 +349,7 @@ class vllamaIta(Blip2Base):
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(-1, dim, ds)
         patch_pos_embed = nn.functional.interpolate(patch_pos_embed, scale_factor=npatch / N, mode='linear')
         patch_pos_embed = patch_pos_embed.view(bs, p, dim, -1).permute(0, 3, 1, 2)
-
+        
         return patch_pos_embed
     
     @torch.no_grad()
@@ -353,7 +370,7 @@ class vllamaIta(Blip2Base):
             except:
                 model_pair[1].data = model_pair[1].data * self.momentum + model_pair[0].data * (1. - self.momentum)
             '''
-    def encode_img(self, image, query_true=True):
+    def encode_img(self, image, modality, query_true=True):
         #device = self.llama_model_device
         #print('Device', device)
         
@@ -368,6 +385,9 @@ class vllamaIta(Blip2Base):
             #print('image.shape', image.shape)
             #image_embeds = []
             #print(image)
+
+            image_embeds = torch.tensor([]).to(self.llama_model_device)
+            slice_embeds = torch.tensor([]).to(self.llama_model_device)
             '''
             for idx in range(image.shape[1]):
                 slice = image[0][idx]
@@ -384,29 +404,39 @@ class vllamaIta(Blip2Base):
                     image_embeds = slice_embeds
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
             '''
-
-            for idx in range(image.shape[0]):
+            #print('modality: ', modality)
+            #print('image.shape', image.shape)
+            for idx in range(image.shape[1]):
                 
                 if idx < 5:
                     continue
 
-                if idx == image.shape[0]-5:
+                if idx == image.shape[1]-5:
                     break
                 
-                slice = image[idx]
+                slice = image[:,idx,:,:,:]
                 #print('slice.shape', slice.shape)
-                slice = kornia.geometry.transform.resize(slice, size=(224, 224))
+                slice_image = kornia.geometry.transform.resize(slice, size=(224, 224))
                 #slice = torch.unsqueeze(slice, dim=0)
                 #slice_image = torch.cat((slice, slice, slice), dim=0)
-                slice_image = torch.unsqueeze(slice, dim=0)
-                slice_embeds = self.visual_encoder(slice_image).to(self.llama_model_device)
+                #slice_image = torch.unsqueeze(slice, dim=0)
+                #print('slice_image.shape', slice_image.shape)
+                if modality[0] == "brainMRI":
+                    slice_embeds = self.visual_encoder(slice_image).to(self.llama_model_device)
+                    #print('bmri slice_embeds.shape', slice_embeds.shape)
+
+                elif modality[0] == "rectalMRI":
+                    slice_embeds = self.visual_encoder_two(slice_image).to(self.llama_model_device)
+                    #print('rmri slice_embeds.shape', slice_embeds.shape)
                 
-                if idx == 5:
-                    image_embeds = slice_embeds
-                image_embeds = torch.cat((image_embeds, slice_embeds), dim=0)
+                slice_embeds = slice_embeds.unsqueeze(dim=1)
+                #print('slice_embeds.shape', slice_embeds.shape)
+                image_embeds = torch.cat((image_embeds, slice_embeds), dim=1)
+                #print('cat image_embeds.shape', image_embeds.shape)
             
+            #print("image_embeds.shape", image_embeds.shape)
             image_embeds = image_embeds.to(self.llama_model_device)
-            image_embeds = torch.unsqueeze(image_embeds, dim=0)
+            #image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
             #print('image_embeds.device', image_embeds.device)
@@ -417,8 +447,8 @@ class vllamaIta(Blip2Base):
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-           
             
+
             if query_true:
                 query_output = self.Qformer.bert(
                     query_embeds=query_tokens,
@@ -481,18 +511,21 @@ class vllamaIta(Blip2Base):
         image = samples[0]#.to(self.llama_model_device)
         text = samples[1]#.to(self.llama_model_device)
         modality = samples[2]
+        #print('image', image.size())
         bs, ds, c, h, w = image.size()
         #bs, c, h, w = image.size()
-        image = image.view(-1, c, h, w)
+        #image = image.view(-1, c, h, w)
         
-        img_embeds, atts_img, query_output = self.encode_img(image)
+        img_embeds, atts_img, query_output = self.encode_img(image, modality)
+        #print('img_embeds.shape', img_embeds.shape)
         atts_img = atts_img.to(self.llama_model_device)
         if hasattr(samples, 'question_split'):  # VQA dataset
             print('VQA Batch')
             vqa_prompt = '###Human: <Img><ImageHere></Img> '
             img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, vqa_prompt)
         elif self.prompt_list:
-            prompt = random.choice(self.prompt_list)
+            #print('modality0', modality, modality[0])
+            prompt = random.choice(self.prompt_dict[modality[0]])
             img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, prompt)
     
         self.llama_tokenizer.padding_side = "right"
@@ -502,6 +535,7 @@ class vllamaIta(Blip2Base):
         ###==========Image-Text Alignment===============###
         #text = [t + self.end_sym for t in samples["text_input"]]
         text = [t + self.end_sym for t in samples[1]]
+        
 
         ###Use bert-base-uncased tokenizer
         txt_tokens = self.tokenizer(text, return_tensors="pt",
@@ -521,14 +555,14 @@ class vllamaIta(Blip2Base):
         
         txt_embeds = txt_output.last_hidden_state[:,0,:]
         #print('txt_embeds.shape', txt_embeds.shape)
-        
-        img_feat = F.normalize(query_output.mean(dim=0), dim=-1)
+        #print('query_output.shape', query_output.shape)
+        img_feat = F.normalize(query_output.mean(dim=1), dim=-1)
         txt_feat = F.normalize(txt_embeds, dim=-1)
         
         ###=======MoCo=========###
         with torch.no_grad():
             self._momentum_update()
-            _, _, query_output_m = self.encode_img(image)
+            _, _, query_output_m = self.encode_img(image, modality)
             #img_embeds_m = img_embeds_m.view(bs, ds, num_patch, embed_dim)
             #img_embeds_m = img_embeds_m + self.interpolate_pos_encoding(self.z_embed_m, img_embeds_m)
 
@@ -551,8 +585,10 @@ class vllamaIta(Blip2Base):
             text_feat_all = torch.cat([text_feat_m.t(), self.text_queue.clone().detach()], dim=1)
             
             # image-text alignment (diagonal)
-            #print('image_feat_m, image_feat_all', image_feat_m.shape)
-            #print('image_feat_all', image_feat_all)
+            #print('image_feat_m', image_feat_m.shape)
+            #print('image_feat_all', image_feat_all.shape)
+            #print('text_feat_m', text_feat_m.shape)
+            #print('text_feat_all', text_feat_all.shape)           
             #print('image_feat_all', image_feat_all.shape)
             sim_i2t_m = image_feat_m @ text_feat_all / self.temp
             sim_t2i_m = text_feat_m @ image_feat_all / self.temp
@@ -574,7 +610,7 @@ class vllamaIta(Blip2Base):
 
         sim_i2t = img_feat @ text_feat_all / self.temp
         sim_t2i = txt_feat @ image_feat_all / self.temp
-
+        #print('sim_i2t.shape', sim_i2t.shape, 'sim_i2t_targets.shape', sim_i2t_targets.shape)
         loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1) * sim_i2t_targets, dim=1).mean()
         loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1) * sim_t2i_targets, dim=1).mean()
 
@@ -644,6 +680,7 @@ class vllamaIta(Blip2Base):
             loss = outputs.loss + loss_ita
 
         return {"loss": loss}
+    
     
     @classmethod
     def from_config(cls, cfg):

@@ -17,10 +17,10 @@ class brainMRI3dbuilder(BaseDatasetBuilder):
         build_info = self.config.build_info
         
         datasets = dict()
-        split = ["train", "val"]
+        split = ["train"]
         dataset_cls = self.train_dataset_cls
         datasets[split[0]] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=True)
-        datasets[split[1]] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=False)
+        #datasets[split[1]] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=False)
         return datasets
 
 @registry.register_builder("rectal-mri-3d")
@@ -31,10 +31,10 @@ class rectalMRI3dbuilder(BaseDatasetBuilder):
         build_info = self.config.build_info
         
         datasets = dict()
-        split = ["train", "val"]
+        split = ["train"]
         dataset_cls = self.train_dataset_cls
         datasets[split[0]] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=True)
-        datasets[split[1]] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=False)
+        #datasets[split[1]] = dataset_cls(img_path=build_info.img_path, txt_path=build_info.txt_path, transform=None, is_train=False)
         return datasets
 
 @registry.register_builder("ct-seg-3d")

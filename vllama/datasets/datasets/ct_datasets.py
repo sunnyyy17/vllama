@@ -325,9 +325,9 @@ class rectalMRIDataset(data.Dataset):
         #print(self.all_subject)
         # split train/val/test set (not depending on the seed) -> fixed division
         if self.is_train:
-            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.95)]  # 90%
+            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.001)]  # 90%
         else:
-            self.subject_list = self.all_subject[int(len(self.all_subject)*0.95):]  # 6%
+            self.subject_list = self.all_subject[int(len(self.all_subject)*0.999):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
 
@@ -336,7 +336,7 @@ class rectalMRIDataset(data.Dataset):
             if 'SURVEY' in item:
                 _ = self.subject_list.pop(idx)
         print(len(self.subject_list))
-
+    
     def __len__(self):
         return len(self.subject_list)
 
@@ -355,6 +355,7 @@ class rectalMRIDataset(data.Dataset):
         #volume = np.load(subject + './OBL AXL FSE T2_image.nii.gz')
         #volume = np.load(subject + '/3d.npy')
         #print('Volume shape: ', volume.shape)
+
         
         caption = self.mri_label[patient_ID_key]
         
@@ -403,6 +404,7 @@ class rectalMRIDataset(data.Dataset):
         preproc_frames_cat = kornia.geometry.transform.resize(preproc_frames_cat,
                                                               size=(224, 224))
         
+        preproc_frames_cat = preproc_frames_cat[:20,:,:,:]
         #print('here')
         #print('preproc_frames_cat.shape', preproc_frames_cat.shape)
         #print('subject', subject)
@@ -430,9 +432,9 @@ class brainMRIDataset(data.Dataset):
         #print(self.all_subject)
         # split train/val/test set (not depending on the seed) -> fixed division
         if self.is_train:
-            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.90)]  # 90%
+            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.10)]  # 90%
         else:
-            self.subject_list = self.all_subject[int(len(self.all_subject)*0.90):]  # 6%
+            self.subject_list = self.all_subject[int(len(self.all_subject)*0.98):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
         
@@ -456,8 +458,10 @@ class brainMRIDataset(data.Dataset):
         #volume = np.load(subject + './OBL AXL FSE T2_image.nii.gz')
         #volume = np.load(subject + '/3d.npy')
         #print('Volume shape: ', volume.shape)
-        
+        #print('before index', patient_ID_key)
         index = self.mri_label.index[self.mri_label['Patient'] == patient_ID_key]
+        ##print('index', index)
+        #print('index[0]', index[0])
         caption = self.mri_label.at[index[0], 'report']
         #caption = self.mri_label[patient_ID_key]
         # caption = self.df[subject]
@@ -506,6 +510,8 @@ class brainMRIDataset(data.Dataset):
                                                               size=(224, 224))
         
         
+        preproc_frames_cat = preproc_frames_cat[:20,:,:,:]
+        #preproc_frames_cat = preproc_frames_cat.unsqueeze(0)
         #print('here')
         #print('preproc_frames_cat.shape', preproc_frames_cat.shape)
         ##print('subject', subject)

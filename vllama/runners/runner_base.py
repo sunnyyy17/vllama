@@ -61,7 +61,6 @@ class RunnerBase:
         self._lr_sched = None
 
         self.start_epoch = 0
-
         # self.setup_seeds()
         self.setup_output_dir()
 
@@ -169,6 +168,8 @@ class RunnerBase:
                 except (AttributeError, TypeError):
                     iters_per_epoch = 10
             
+
+            
             self._lr_sched = lr_sched_cls(
                 optimizer=self.optimizer,
                 max_epoch=max_epoch,
@@ -181,7 +182,14 @@ class RunnerBase:
             )
         
         return self._lr_sched
+    
+    def custom_collate_fn(batch):
         
+        min_size = min([item[0].size(0) for item in batch])
+        trimmed_batch = [(item[0][:min_size], item[1], item[2]) for item in batch]
+        print('trimmed_batch', trimmed_batch)
+        return torch.utils.data.dataloader.default_collate(trimmed_batch)
+    
     @property
     def dataloaders(self) -> dict:
         """
@@ -229,7 +237,7 @@ class RunnerBase:
                             for d in self.datasets[split_name]
                         ]
                     )
-
+                
                 else:
                     if hasattr(self.datasets[split_name], "__len__"):
                         # a single map-style dataset
@@ -252,7 +260,7 @@ class RunnerBase:
             split_dnames = sorted(self.datasets.keys())
             print('before split_names: ', split_dnames)
             split_names = []
-            for tv_split in self.datasets[split_dnames[0]]:
+            for tv_split in self.datasets[split_dnames[1]]:
                     split_names.append(tv_split) 
             
             print('split_tval_create dataloaders', split_names)
@@ -320,7 +328,7 @@ class RunnerBase:
     @property
     def valid_splits(self):
         valid_splits = self.config.run_cfg.get("valid_splits", [])
-
+        valid_splits = []
         if len(valid_splits) == 0:
             logging.info("No validation splits found.")
 
@@ -399,37 +407,46 @@ class RunnerBase:
             if len(self.valid_splits) > 0:
                 for split_name in self.valid_splits:
                     logging.info("Evaluating on {}.".format(split_name))
-                    
+                    save_txt_path = self.config.run_cfg.save_txt_path
                     val_log = self.eval_epoch(
-                        split_name=split_name, cur_epoch=cur_epoch
+                        split_name=split_name, cur_epoch=cur_epoch, save_txt_path=save_txt_path
                     )
                     print(val_log)
+
+                    ###val_log work and save
                     if val_log is not None:
+                        print('val_log SUCCESSFUL')
                         if is_main_process():
                             assert (
-                                "ROUGE-L" in val_log
+                                "BLEU-4" in val_log
                             ), "No metrics found in validation log."
-
-                            agg_metrics = val_log["Rouge-L"]
+                            print("torch metrics ")
+                            agg_metrics = val_log["BLEU-4"]
                             if agg_metrics > best_agg_metric and split_name == "val":
                                 best_epoch, best_agg_metric = cur_epoch, agg_metrics
 
                                 self._save_checkpoint(cur_epoch, is_best=True)
                             
+                            else:
+                                ###SAVE CHECKPOINT EVERY EPOCH
+                                print("==========SAVE CHECKPOINT EVERY EPOCH=========")
+                                self._save_checkpoint(cur_epoch, is_best=False)
                             val_log.update({"best_epoch": best_epoch})
                             self.log_stats(val_log, split_name)
+                    
             
             else:
                 # if no validation split is provided, we just save the checkpoint at the end of each epoch.
-                if not self.evaluate_only:
-                    self._save_checkpoint(cur_epoch, is_best=False)
+                self._save_checkpoint(cur_epoch, is_best=False)
+                #if not self.evaluate_only:
+                    #self._save_checkpoint(cur_epoch, is_best=False)
 
             if self.evaluate_only:
                 break
 
             if self.config.run_cfg.distributed:
                 dist.barrier()
-
+        
         # testing phase
         test_epoch = "best" if len(self.valid_splits) > 0 else cur_epoch
         self.evaluate(cur_epoch=test_epoch, skip_reload=self.evaluate_only)
@@ -493,7 +510,7 @@ class RunnerBase:
         )
     
     @torch.no_grad()
-    def eval_epoch(self, split_name, cur_epoch, skip_reload=False):
+    def eval_epoch(self, split_name, cur_epoch, save_txt_path, skip_reload=False):
         """
         Evaluate the model on a given split.
 
@@ -505,6 +522,8 @@ class RunnerBase:
                 During testing, we will use provided weights and skip reloading the best checkpoint .
         """
         data_loader = self.dataloaders.get(split_name, None)
+        eval_iters_per_epoch = len(data_loader)
+        print('eval_iters_per_epoch', eval_iters_per_epoch)
         print('split_name', split_name)
         
         assert data_loader, "data_loader for split {} is None.".format(split_name)
@@ -521,8 +540,10 @@ class RunnerBase:
             dataset=self.datasets[split_name],
         )
         '''
-        results = self.task.evaluation(model, data_loader)
+        print('self.task.evaluation run check', self.task)
         
+        results = self.task.evaluation(model, data_loader, eval_iters_per_epoch, save_txt_path)
+        print('RESULTS: ', results)
         return results
         #if results is not None:
         '''
@@ -552,7 +573,7 @@ class RunnerBase:
         """
         Create dataloaders for training and validation.
         """
-
+        
         def _create_loader(dataset, num_workers, bsz, is_train, collate_fn):
             # create a single dataloader for each split
             if isinstance(dataset, ChainDataset) or isinstance(
@@ -584,7 +605,7 @@ class RunnerBase:
                         sampler = sampler if is_train else None
                 else:
                     sampler = None
-
+                
                 loader = DataLoader(
                     dataset,
                     batch_size=bsz,
@@ -593,7 +614,7 @@ class RunnerBase:
                     sampler=sampler,
                     shuffle=sampler is None and is_train,
                     collate_fn=collate_fn,
-                    drop_last=True if is_train else False,
+                    drop_last=False if is_train else False,
                 )
                 #loader = PrefetchLoader(loader)
                 loader = IterLoader(loader, use_distributed=self.use_distributed)
@@ -621,6 +642,7 @@ class RunnerBase:
                 print('collate_fn:', collate_fn)
                 for d in dataset:
                     print('dataset d:', d)
+                
                 
                 loader = MultiIterLoader(
                     loaders=[

@@ -8,6 +8,7 @@
 import logging
 import random
 import os
+import csv
 import pdb
 import torch
 import torch.distributed as dist
@@ -32,12 +33,13 @@ class StoppingCriteriaSub(StoppingCriteria):
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor):
         for stop in self.stops:
+            stop = stop.to('cuda')
             if torch.all((stop == input_ids[0][-len(stop):])).item():
                 return True
 
         return False
     
-max_new_tokens=300
+max_new_tokens=200
 num_beams=1
 min_length=1
 top_p=0.9
@@ -45,8 +47,8 @@ repetition_penalty=1.0
 length_penalty=1
 temperature=1.0
 max_length=2000
-stop_words_ids = [torch.tensor([835]), torch.tensor([2277, 29937])]
-stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_ids)])
+#stop_words_ids = [torch.tensor([835]), torch.tensor([2277, 29937])]
+#stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(stops=stop_words_ids)])
 total_bleu_four = 0
 total_rouge_l_prec = 0
 total_rouge_l_rec = 0
@@ -115,30 +117,24 @@ class BaseTask:
         
         #image = samples[0]
         #text = samples[1]
-        img_emb, atts_img, _ = model.encode_img(samples[0])
+        img_emb, atts_img, _ = model.encode_img(samples[0], samples[2])
                 
         if hasattr(samples, 'question_split'):  # VQA dataset
             print('VQA Batch')
             vqa_prompt = '###Human: <Img><ImageHere></Img> '
-            img_embeds, atts_img = model.prompt_wrap(img_emb, atts_img, vqa_prompt)
+            input_embeds, atts_img = model.prompt_wrap(img_emb, atts_img, vqa_prompt)
         elif model.prompt_list:
-            prompt = random.choice(model.prompt_list)
-            input_embeds, _ = model.prompt_wrap(img_embeds, atts_img, prompt)
+            prompt = random.choice(model.prompt_dict[samples[2][0]])
+            input_embeds, _ = model.prompt_wrap(img_emb, atts_img, prompt)
         
+        input_embeds = input_embeds.to('cuda')
         outputs = model.llama_model.generate(
             inputs_embeds=input_embeds, 
-            max_new_tokens=max_new_tokens,
-            stopping_criteria=stopping_criteria,
-            num_beams=num_beams,
-            do_sample=True,
-            min_length=min_length,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            length_penalty=length_penalty,
-            temperature=temperature,
+            max_new_tokens=max_new_tokens
         )
         #raise NotImplementedError
-        
+        outputs = outputs.cpu().detach()
+
         return outputs
     
     def before_evaluation(self, model, dataset, **kwargs):
@@ -149,8 +145,9 @@ class BaseTask:
     
     def inference_step(self):
         raise NotImplementedError
-
-    def evaluation(self, model, data_loader, cuda_enabled=True):
+    
+    def evaluation(self, model, data_loader, eval_iters_per_epoch, save_txt_path, cuda_enabled=True):
+        
         metric_logger = MetricLogger(delimiter="  ")
         header = "Evaluation"
         # TODO make it configurable
@@ -164,10 +161,16 @@ class BaseTask:
         total_rouge_l_f = 0
 
         results = {}
+            
+        #for samples in metric_logger.log_every(data_loader, print_freq, header):
+        for i in metric_logger.log_every(range(eval_iters_per_epoch), print_freq, header):
+            print("Index: ", i)
+            if i >=eval_iters_per_epoch:
+                break
 
-        for samples in metric_logger.log_every(data_loader, print_freq, header):
+            samples = next(data_loader)
             samples = prepare_sample(samples, cuda_enabled=cuda_enabled)
-
+            
             eval_output = self.valid_step(model=model, samples=samples)
             text = samples[1]
             output_token = eval_output[0]
@@ -193,7 +196,7 @@ class BaseTask:
             #total_rouge_l_rec += rouge_score['rougeL_recall']
             #total_rouge_l_f += rouge_score['rougeL_fmeasure']
         
-        avg_bleu_four = total_bleu_four / len(data_loader)
+        avg_bleu_four = total_bleu_four / eval_iters_per_epoch
         #avg_rouge_l_prec = total_rouge_l_prec / len(data_loader)
         #avg_rouge_l_rec = total_rouge_l_rec / len(data_loader)
         #avg_rouge_l_f = total_rouge_l_f / len(data_loader)
@@ -203,9 +206,12 @@ class BaseTask:
         results['gt'] = text
         results['BLEU-4'] = avg_bleu_four
         #results['ROUGE-L'] = avg_rouge_l_f
-            
+        with open(save_txt_path, 'a') as csv_file:
+            new_gen = [results['answer'], results['gt'], results['BLEU-4']]
+            writer = csv.writer(csv_file)
+            writer.writerow(new_gen)
         if is_dist_avail_and_initialized():
-            dist.barrier()
+                dist.barrier()
         
         return results
     

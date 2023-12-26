@@ -6,7 +6,7 @@ model:
   freeze_qformer: True
   low_resource: True
   device_8bit: 0
-  vit_path: '/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth'
+  vit_path: ['/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth', '/data/changsun/vllama_checkpoints/dino_checkpoints/rectal_dino_nosolar_noflipjitter1_checkpoint0010.pth']
   lora_r: 64
   lora_target_modules: ["q_proj","v_proj"]
   lora_alpha: 16
@@ -15,7 +15,7 @@ model:
   temp: 0.07
   alpha: 0.04
   momentum: 0.995
-  queue_size: 10
+  queue_size: 128
   end_sym: "###"
   prompt_path: "prompts/alignment_multi.txt"
   prompt_template: '###Human: {} ###Assistant: '
@@ -51,7 +51,7 @@ run:
   
   weight_decay: 0.05
   max_epoch: 30
-  batch_size_train: 1
+  batch_size_train: 8
   batch_size_eval: 1
   num_workers: 16
   warmup_steps: 5000
@@ -65,8 +65,11 @@ run:
   
   evaluate: False   
   train_splits: ["train"]
-  valid_splits: ["val"]
+  valid_splits: 
   device: "cuda:0"
   world_size: 1
   dist_url: "env://"
-  distributed: Trues
+  distributed: True
+
+  eval_iters_per_epoch:
+  save_txt_path: '/home/ubuntu/changsun/3D-LLaMA/vllama/output/validation_save.csv'

@@ -901,6 +901,7 @@ class BertModel(BertPreTrainedModel):
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
         if encoder_hidden_states is not None:
+            #print('encoder_hidden_states.size()', encoder_hidden_states.size())
             if type(encoder_hidden_states) == list:
                 encoder_batch_size, encoder_sequence_length, _ = encoder_hidden_states[
                     0
