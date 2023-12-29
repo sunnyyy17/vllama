@@ -1062,7 +1062,7 @@ class BertLMHeadModel(BertPreTrainedModel):
             return_dict=return_dict,
             is_decoder=is_decoder,
         )
-
+        
         sequence_output = outputs[0]
         if query_embeds is not None:
             sequence_output = outputs[0][:, query_embeds.shape[1] :, :]

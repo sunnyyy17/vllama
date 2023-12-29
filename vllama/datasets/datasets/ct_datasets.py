@@ -325,9 +325,9 @@ class rectalMRIDataset(data.Dataset):
         #print(self.all_subject)
         # split train/val/test set (not depending on the seed) -> fixed division
         if self.is_train:
-            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.001)]  # 90%
+            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.10)]  # 90%
         else:
-            self.subject_list = self.all_subject[int(len(self.all_subject)*0.999):]  # 6%
+            self.subject_list = self.all_subject[int(len(self.all_subject)*0.95):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
 
@@ -405,6 +405,10 @@ class rectalMRIDataset(data.Dataset):
                                                               size=(224, 224))
         
         preproc_frames_cat = preproc_frames_cat[:20,:,:,:]
+        preproc_frames_cat = preproc_frames_cat[:20,:,:,:]
+        if preproc_frames_cat.shape[0] < 20:
+            padding  = torch.zeros(20-preproc_frames_cat.shape[0], preproc_frames_cat.shape[1], preproc_frames_cat.shape[2], preproc_frames_cat.shape[3])
+            preproc_frames_cat = torch.cat((preproc_frames_cat, padding), dim=0)
         #print('here')
         #print('preproc_frames_cat.shape', preproc_frames_cat.shape)
         #print('subject', subject)
@@ -432,9 +436,9 @@ class brainMRIDataset(data.Dataset):
         #print(self.all_subject)
         # split train/val/test set (not depending on the seed) -> fixed division
         if self.is_train:
-            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.10)]  # 90%
+            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.90)]  # 90%
         else:
-            self.subject_list = self.all_subject[int(len(self.all_subject)*0.98):]  # 6%
+            self.subject_list = self.all_subject[int(len(self.all_subject)*0.90):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
         
@@ -459,6 +463,7 @@ class brainMRIDataset(data.Dataset):
         #volume = np.load(subject + '/3d.npy')
         #print('Volume shape: ', volume.shape)
         #print('before index', patient_ID_key)
+        print('patient_ID_key: ', patient_ID_key)
         index = self.mri_label.index[self.mri_label['Patient'] == patient_ID_key]
         ##print('index', index)
         #print('index[0]', index[0])
@@ -511,6 +516,9 @@ class brainMRIDataset(data.Dataset):
         
         
         preproc_frames_cat = preproc_frames_cat[:20,:,:,:]
+        if preproc_frames_cat.shape[0] < 20:
+            padding  = torch.zeros(20-preproc_frames_cat.shape[0], preproc_frames_cat.shape[1], preproc_frames_cat.shape[2], preproc_frames_cat.shape[3])
+            preproc_frames_cat = torch.cat((preproc_frames_cat, padding), dim=0)
         #preproc_frames_cat = preproc_frames_cat.unsqueeze(0)
         #print('here')
         #print('preproc_frames_cat.shape', preproc_frames_cat.shape)

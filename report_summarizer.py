@@ -34,7 +34,7 @@ txt_path = '/data/changsun/data/MRI/rectal/202301_MRI_impression_final.json'
 #dataset = rectalMRIDataset(img_path, txt_path, None, False)
 #test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
-device = 'cuda:1'
+device = 'cuda'
 
 tokenizer = LlamaTokenizer.from_pretrained('/data/changsun/models/PMC-LLaMA')
 model = LlamaForCausalLM.from_pretrained('/data/changsun/models/PMC-LLaMA', 
@@ -92,7 +92,7 @@ for patient_id, report in report_data.items():
     input_ids = input_tokens.input_ids
     input_ids = input_ids.to(device)
     input_length = input_ids.size(1)
-
+    
     outputs = model.generate(
         input_ids = input_ids,
         max_new_tokens=max_new_tokens,

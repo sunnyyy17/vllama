@@ -12,7 +12,10 @@ model:
   num_query_token: 32
   
   # Vicuna
-  llama_model: 'axiong/PMC_LLaMA_13B' 
+  llama_model: '/data/changsun/models/PMC-LLaMA' 
+  
+  
+  #'axiong/PMC_LLaMA_13B' 
   
   #'starmpcc/Asclepius-7B' 
   #'chaoyi-wu/MedLLaMA_13B'

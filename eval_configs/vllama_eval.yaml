@@ -1,0 +1,30 @@
+model:
+  arch: vllama_ita
+  model_type: pretrain_vicuna
+  freeze_vit: True
+  freeze_qformer: True
+  max_txt_len: 160
+  end_sym: "###"
+  low_resource: True
+  device_8bit: 0
+  prompt_path: "/scratch/slurm-user3/changsun/vllama/prompts/alignment_multi.txt"
+  prompt_template: '###Human: {} ###Assistant: '
+  ckpt: '/scratch/slurm-user3/changsun/vllama/vllama/output/brain-tcga-dino-pmcllama-lora-b16/20231227122/checkpoint_2.pth' #'/home/changsun/minigpt4/checkpoints/20231130031/checkpoint_2.pth' #'/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
+  vit_path: ['/scratch/slurm-user3/changsun/dino/checkpoint/brain_TCGA_MRI_all_sorted_imgnet_pretrained_nosolar_noflipandjitter1/checkpoint0005.pth', '/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_nosolar_noflipandjitter1/checkpoint0010.pth'] #'/home/changsun/minigpt4/checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/rectal_dino_nosolar_noflipjitter1_checkpoint0010.pth'
+  lora_r: 64
+  lora_target_modules: ["q_proj","v_proj"]
+  lora_alpha: 16
+  lora_dropout: 0.05
+
+datasets:
+  brain-mri-3d:
+    vis_processor:
+      train:
+        name: "blip2_image_eval"
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"
+
+run:
+  task: image_text_pretrain

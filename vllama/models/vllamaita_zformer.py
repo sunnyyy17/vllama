@@ -38,8 +38,6 @@ def concat_all_gather(tensor):
     output = torch.cat(tensors_gather, dim=0)
     return output
 
-def forward_hook(module, input, output):
-    module.used = True
 
 
 @registry.register_model("vllama_ita")
@@ -141,10 +139,6 @@ class vllamaIta(Blip2Base):
         self.Qformer_m.cls = None
         #self.Qformer.bert.embeddings.word_embeddings = None
         #self.Qformer.bert.embeddings.position_embeddings = None
-
-        for name, layer in self.Qformer.bert.named_modules():
-            layer.used = False
-            layer.register_forward_hook(forward_hook)
         '''
         for layer in self.Qformer.bert.encoder.layer:
             layer.output = None
@@ -157,7 +151,7 @@ class vllamaIta(Blip2Base):
         self.load_from_pretrained(url_or_filename=q_former_model)
         self.Qformer = self.Qformer.train()
 
-
+        
         if freeze_qformer:
             for layer in self.Qformer.bert.encoder.layer:
                 for param in layer.parameters():
@@ -216,7 +210,7 @@ class vllamaIta(Blip2Base):
             )
             self.llama_model = get_peft_model(self.llama_model, loraconfig)
             print("LLAMA MODEL under LORA")
-            #self.llama_model.print_trainable_parameters()
+            self.llama_model.print_trainable_parameters()
         
         else:
             for name, param in self.llama_model.named_parameters():
@@ -418,7 +412,7 @@ class vllamaIta(Blip2Base):
                 
                 if idx < 5:
                     continue
-                
+
                 if idx == image.shape[1]-5:
                     break
                 
@@ -552,15 +546,14 @@ class vllamaIta(Blip2Base):
             max_length=self.max_txt_len).to(self.llama_model_device)
         
         #txt_atts = torch.ones(txt_tokens.input_ids.size()[:-1], dtype=torch.long).to(self.llama_model_device)
-        with torch.no_grad():
-            txt_output = self.Qformer.bert(
-                        input_ids= txt_tokens.input_ids,
-                        attention_mask= txt_tokens.attention_mask,
-                        encoder_hidden_states=None,
-                        encoder_attention_mask=None,
-                        return_dict=True,
-                        is_decoder=False
-                    )
+        txt_output = self.Qformer.bert(
+                    input_ids= txt_tokens.input_ids,
+                    attention_mask= txt_tokens.attention_mask,
+                    encoder_hidden_states=None,
+                    encoder_attention_mask=None,
+                    return_dict=True,
+                    is_decoder=False
+                )
         
         txt_embeds = txt_output.last_hidden_state[:,0,:]
         #print('txt_embeds.shape', txt_embeds.shape)
@@ -687,12 +680,6 @@ class vllamaIta(Blip2Base):
             )
 
             loss = outputs.loss + loss_ita
-
-        for name,layer in self.Qformer.bert.named_modules():
-            if layer.used:
-                print(f"Layer {name} was used.")
-            else:
-                print(f"Layer {name} was NOT used.")
 
         return {"loss": loss}
     

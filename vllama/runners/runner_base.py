@@ -88,7 +88,7 @@ class RunnerBase:
             if self.use_distributed:
                 if self._wrapped_model is None:
                     self._wrapped_model = DDP(
-                        self._model, device_ids=[self.config.run_cfg.gpu], find_unused_parameters=False
+                        self._model, device_ids=[self.config.run_cfg.gpu], find_unused_parameters=True
                     )
             else:
                 self._wrapped_model = self._model
@@ -614,7 +614,7 @@ class RunnerBase:
                     sampler=sampler,
                     shuffle=sampler is None and is_train,
                     collate_fn=collate_fn,
-                    drop_last=False if is_train else False,
+                    drop_last=True if is_train else False,
                 )
                 #loader = PrefetchLoader(loader)
                 loader = IterLoader(loader, use_distributed=self.use_distributed)
@@ -670,9 +670,12 @@ class RunnerBase:
         state_dict = model_no_ddp.state_dict()
         
         for k in list(state_dict.keys()):
+            
             if k in param_grad_dic.keys() and not param_grad_dic[k]:
                 # delete parameters that do not require gradient
                 del state_dict[k]
+            else:
+                print('keys for saving: ', k)
         
         save_obj = {
             "model": state_dict,
@@ -688,7 +691,7 @@ class RunnerBase:
         )
         logging.info("Saving checkpoint at epoch {} to {}.".format(cur_epoch, save_to))
         torch.save(save_obj, save_to)
-
+    
     def _reload_best_model(self, model):
         """
         Load the best checkpoint for evaluation.

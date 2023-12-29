@@ -34,8 +34,10 @@ question_list = [
 with torch.no_grad()
 with torch.no_grad():
     for idx, item in enumerate(tqdm(test_dataloader)):
+        
         image = item[0]
         text = item[1]
+        image = item[0]
         
         #input_image = vis_processor(image).to(device)
         image_emb, atts_img, _ = model.encode_img(image)

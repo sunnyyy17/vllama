@@ -3,5 +3,5 @@ datasets:
     data_type: images
     build_info:
       transform: None
-      img_path: /data/changsun/data/MRI/brain/brain_MRI_volume/
-      txt_path: /data/changsun/data/MRI/brain/mri_3d_report.csv
+      img_path: /scratch/slurm-user3/changsun/data/brain_MRI_volume
+      txt_path: /scratch/slurm-user3/changsun/data/brain_MRI_label/mri_3d_report.csv

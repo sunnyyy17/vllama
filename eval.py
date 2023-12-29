@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from vllama.common.config import Config
 from vllama.common.dist_utils import get_rank
 from vllama.common.registry import registry
-from vllama.datasets.datasets.ct_datasets import brainMRIDataset
+from vllama.datasets.datasets.ct_datasets import brainMRIDataset, rectalMRIDataset
 from transformers import StoppingCriteria, StoppingCriteriaList
 
 #from vllama.models.vllama_ita_frozen import vllamaItaFrozen 
@@ -62,15 +62,20 @@ model_config.device_8bit = args.gpu_id
 model_cls = registry.get_model_class(model_config.arch)
 model = model_cls.from_config(model_config).to('cuda:{}'.format(args.gpu_id))
 
-vis_processor_cfg = cfg.datasets_cfg.cc_sbu_align.vis_processor.train
-vis_processor = registry.get_processor_class(vis_processor_cfg.name).from_config(vis_processor_cfg)
+#vis_processor_cfg = cfg.datasets_cfg.brain_mri_3d.vis_processor.train
+#vis_processor = registry.get_processor_class(vis_processor_cfg.name).from_config(vis_processor_cfg)
 
-img_path = '/data/changsun/data/MRI/brain/brain_MRI_volume/'
-txt_path = '/data/changsun/data/MRI/brain/mri_3d_report.csv'
-dataset = brainMRIDataset(img_path, txt_path, None, False)
+#img_path = '/scratch/slurm-user3/changsun/data/brain_MRI_volume/'
+#txt_path = '/scratch/slurm-user3/changsun/data/brain_MRI_label/mri_3d_report.csv'
+
+img_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_volume/'
+txt_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_label/202301_MRI_impression_final.json'
+
+#dataset = brainMRIDataset(img_path, txt_path, None, False)
+dataset = rectalMRIDataset(img_path, txt_path, None, True)
 test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
-device = 'cuda:1'
+device = 'cuda:0'
 
 
 class StoppingCriteriaSub(StoppingCriteria):
@@ -86,30 +91,13 @@ class StoppingCriteriaSub(StoppingCriteria):
 
         return False
 
-
-def get_context_emb(self, text, img_list):
-        #prompt = conv.get_prompt()
-        #prompt =
-        prompt_segs = prompt.split('<ImageHere>')
-        assert len(prompt_segs) == len(img_list) + 1, "Unmatched numbers of image placeholders and images."
-        seg_tokens = [
-            self.model.llama_tokenizer(
-                seg, return_tensors="pt", add_special_tokens=i == 0).to(self.device).input_ids
-            # only add bos to the first seg
-            for i, seg in enumerate(prompt_segs)
-        ]
-        seg_embs = [self.model.llama_model.model.model.embed_tokens(seg_t) for seg_t in seg_tokens]
-        mixed_embs = [emb for pair in zip(seg_embs[:-1], img_list) for emb in pair] + [seg_embs[-1]]
-        mixed_embs = torch.cat(mixed_embs, dim=1)
-        return mixed_embs
-
 prompt = '<Img><ImageHere></Img> Could you describe the contents of this image for me?'
 
-max_new_tokens=300
+max_new_tokens=200
 num_beams=1
 min_length=1
 top_p=0.9
-repetition_penalty=1.0
+repetition_penalty=1.2
 length_penalty=1
 temperature=1.0
 max_length=2000
@@ -134,11 +122,12 @@ with torch.no_grad():
     for idx, item in enumerate(tqdm(test_dataloader)):
         image = item[0]
         text = item[1]
+        modality = item[2]
         
         #input_image = vis_processor(image).to(device)
-        image_emb, atts_img, _ = model.encode_img(image)
+        image_emb, atts_img, _ = model.encode_img(image, modality)
         input_emb, _ = model.prompt_wrap(image_emb, atts_img, prompt)
-        
+        #print('Input Embedding Ready')
         #print('input_emb.shape', input_emb.shape)
         outputs = model.llama_model.generate(
             inputs_embeds=input_emb, 
@@ -152,7 +141,7 @@ with torch.no_grad():
             length_penalty=length_penalty,
             temperature=temperature,
         )
-        
+        #print('Generation Complete')
         output_token = outputs[0]
         if output_token[0] == 0:  # the model might output a unknow token <unk> at the beginning. remove it
             output_token = output_token[1:]
