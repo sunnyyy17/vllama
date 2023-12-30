@@ -6,7 +6,7 @@
 """
 
 import os
-
+os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'DETAIL'
 #os.environ["CUDA_LAUNCH_BLOCKING"] = "0" 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 

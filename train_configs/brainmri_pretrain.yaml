@@ -3,7 +3,7 @@ model:
   model_type: pretrain_vicuna
   vit_model: "vit_small"
   freeze_vit: True
-  freeze_qformer: False
+  freeze_qformer: True
   low_resource: True
   device_8bit: 0
   vit_path: ['/scratch/slurm-user3/changsun/dino/checkpoint/brain_TCGA_MRI_all_sorted_imgnet_pretrained_nosolar_noflipandjitter1/checkpoint0005.pth', '/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_nosolar_noflipandjitter1/checkpoint0010.pth']

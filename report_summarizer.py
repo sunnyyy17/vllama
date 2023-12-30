@@ -30,14 +30,15 @@ from peft import (
 
 
 
-txt_path = '/data/changsun/data/MRI/rectal/202301_MRI_impression_final.json'
+
+txt_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_label/202301_MRI_impression_final.json'
+#txt_path = '/data/changsun/data/MRI/rectal/202301_MRI_impression_final.json'
 #dataset = rectalMRIDataset(img_path, txt_path, None, False)
 #test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
 device = 'cuda'
-
-tokenizer = LlamaTokenizer.from_pretrained('/data/changsun/models/PMC-LLaMA')
-model = LlamaForCausalLM.from_pretrained('/data/changsun/models/PMC-LLaMA', 
+tokenizer = LlamaTokenizer.from_pretrained('axiong/PMC_LLaMA_13B')
+model = LlamaForCausalLM.from_pretrained('axiong/PMC_LLaMA_13B', 
                 load_in_8bit=True,
                 torch_dtype=torch.float16,
                 device_map={'': device})
@@ -73,7 +74,7 @@ with open(txt_path, 'r') as rfile:
     report_data = json.load(rfile)
 
 
-prompt = "Make this following MRI report more concise by only containing clinically important information. Do not make up or add in additional information: "
+prompt = "From the following report that comes after the word REPORT:, make me a set of questions and answers of the pathological findings. REPORT: "
 new_report = {}
 
 for patient_id, report in report_data.items():
