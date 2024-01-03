@@ -16,7 +16,7 @@ from vllama.common.config import Config
 from vllama.common.dist_utils import get_rank
 from vllama.common.registry import registry
 from vllama.datasets.datasets.ct_datasets import brainMRIDataset, rectalMRIDataset
-from transformers import StoppingCriteria, StoppingCriteriaList
+from transformers import StoppingCriteria, StoppingCriteriaList, LlamaTokenizer
 
 #from vllama.models.vllama_ita_frozen import vllamaItaFrozen 
 #from vllama.models.vllama_ita import vllamaIta
@@ -38,7 +38,7 @@ def parse_args():
         "in xxx=yyy format will be merged into config file (deprecate), "
         "change to --cfg-options instead.",
     )
-    
+
     args = parser.parse_args()
     return args
 
@@ -72,11 +72,13 @@ img_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_volume/'
 txt_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_label/202301_MRI_impression_final.json'
 
 #dataset = brainMRIDataset(img_path, txt_path, None, False)
-dataset = rectalMRIDataset(img_path, txt_path, None, True)
+dataset = rectalMRIDataset(img_path, txt_path, None, False)
 test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
 device = 'cuda:0'
 
+
+tokenizer = LlamaTokenizer.from_pretrained('axiong/PMC_LLaMA_13B')
 
 class StoppingCriteriaSub(StoppingCriteria):
 
@@ -91,10 +93,10 @@ class StoppingCriteriaSub(StoppingCriteria):
 
         return False
 
-prompt = '<Img><ImageHere></Img> Could you describe the contents of this image for me?'
+prompt = '<Img><ImageHere></Img> Could you describe the contents of this rectal MRI image for me?'
 
 max_new_tokens=200
-num_beams=1
+num_beams=10
 min_length=1
 top_p=0.9
 repetition_penalty=1.2
@@ -118,7 +120,41 @@ rouge = Rouge(metrics=['rouge-l'],
               alpha=0.5, # Alpha for F1-score
               stemming=True)
 '''
+test_prompt = ["Who are you?", "Tell me about medical imaging", "What is your purpose?", "How fluent are you in English?"]
 with torch.no_grad():
+
+    for item in test_prompt:
+
+        inputs = tokenizer.encode(item, return_tensors="pt").to(device)
+        input_embeds = model.llama_model.model.model.embed_tokens(inputs)
+        outputs = model.llama_model.generate(
+            inputs_embeds = input_embeds, 
+            max_new_tokens=max_new_tokens,
+            stopping_criteria=stopping_criteria,
+            num_beams=num_beams,
+            do_sample=True,
+            min_length=min_length,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            length_penalty=length_penalty,
+            temperature=temperature,
+        )
+
+        #print('Generation Complete')
+        output_token = outputs[0]
+        if output_token[0] == 0:  # the model might output a unknow token <unk> at the beginning. remove it
+            output_token = output_token[1:]
+        if output_token[0] == 1:  # some users find that there is a start token <s> at the beginning. remove it
+            output_token = output_token[1:]
+        output_text = model.llama_tokenizer.decode(output_token, add_special_tokens=False)
+        output_text = output_text.split('###')[0]  # remove the stop sign '###'
+        output_text = output_text.split('Assistant:')[-1].strip()
+        
+        
+        print('==================================')
+        print('Candidate: ', output_text)
+        print('==================================')
+        
     for idx, item in enumerate(tqdm(test_dataloader)):
         image = item[0]
         text = item[1]

@@ -325,16 +325,20 @@ class rectalMRIDataset(data.Dataset):
         #print(self.all_subject)
         # split train/val/test set (not depending on the seed) -> fixed division
         if self.is_train:
-            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.10)]  # 90%
+            self.subject_list = self.all_subject[:int(len(self.all_subject)*0.95)]  # 90%
         else:
             self.subject_list = self.all_subject[int(len(self.all_subject)*0.95):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
-
+        self.fug = ['00898791_20220723_1111', '00144977_20220426_1710', '01905101_20210810_1827', '00314908_20210113_1501', '00690419_20211223_1136', '00580054_20220223_1355', '01841626_20210123_1052', '02003454_20220625_1526']
         #print(len(self.subject_list))
         for idx, item in enumerate(self.subject_list):
             if 'SURVEY' in item:
                 _ = self.subject_list.pop(idx)
+            for elem in self.fug:
+                if elem in item:
+                    _ = self.subject_list.pop(idx)
+    
         print(len(self.subject_list))
     
     def __len__(self):
@@ -417,7 +421,7 @@ class rectalMRIDataset(data.Dataset):
         #output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
         #torch.save(preproc_frames_cat, output_file_path)
         
-        return preproc_frames_cat, caption, "rectalMRI"
+        return preproc_frames_cat, caption, "rectalMRI", patient_ID_key
 
 class brainMRIDataset(data.Dataset):
     def __init__(self, img_path, txt_path, transform=None, is_train=True):
@@ -463,7 +467,7 @@ class brainMRIDataset(data.Dataset):
         #volume = np.load(subject + '/3d.npy')
         #print('Volume shape: ', volume.shape)
         #print('before index', patient_ID_key)
-        print('patient_ID_key: ', patient_ID_key)
+        #print('patient_ID_key: ', patient_ID_key)
         index = self.mri_label.index[self.mri_label['Patient'] == patient_ID_key]
         ##print('index', index)
         #print('index[0]', index[0])
@@ -528,7 +532,7 @@ class brainMRIDataset(data.Dataset):
         #output_file_path = '/'+output_path+'/'+str(dir_path[-1])+'_convert.pt'
         #torch.save(preproc_frames_cat, output_file_path)
         
-        return preproc_frames_cat, caption, "brainMRI"
+        return preproc_frames_cat, caption, "brainMRI", patient_ID_key
 
 class ImgEmbedDataset(data.Dataset):
 

@@ -138,7 +138,7 @@ class Chat:
                repetition_penalty=1.0, length_penalty=1, temperature=1.0, max_length=2000):
         conv.append_message(conv.roles[1], None)
         embs = self.get_context_emb(conv, img_list)
-
+        
         current_max_len = embs.shape[1] + max_new_tokens
         if current_max_len - max_length > 0:
             print('Warning: The number of tokens in current conversation exceeds the max length. '

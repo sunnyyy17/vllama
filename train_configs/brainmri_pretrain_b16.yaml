@@ -3,7 +3,7 @@ model:
   model_type: pretrain_vicuna
   vit_model: "vit_small"
   freeze_vit: True
-  freeze_qformer: True
+  freeze_qformer: False
   low_resource: True
   device_8bit: 0
   vit_path: ['/scratch/slurm-user3/changsun/dino/checkpoint/brain_TCGA_MRI_all_sorted_imgnet_pretrained_nosolar_noflipandjitter1/checkpoint0005.pth', '/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_nosolar_noflipandjitter1/checkpoint0010.pth']
@@ -15,7 +15,7 @@ model:
   temp: 0.07
   alpha: 0.04
   momentum: 0.995
-  queue_size: 256
+  queue_size: 1024
   end_sym: "###"
   prompt_path: "prompts/alignment_multi.txt"
   prompt_template: '###Human: {} ###Assistant: '
@@ -70,6 +70,6 @@ run:
   world_size: 1
   dist_url: "env://"
   distributed: True
-
+  
   eval_iters_per_epoch:
   save_txt_path: '/scratch/slurm-user3/changsun/vllama/output/validation_save.csv'

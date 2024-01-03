@@ -88,7 +88,7 @@ class RunnerBase:
             if self.use_distributed:
                 if self._wrapped_model is None:
                     self._wrapped_model = DDP(
-                        self._model, device_ids=[self.config.run_cfg.gpu], find_unused_parameters=True
+                        self._model, device_ids=[self.config.run_cfg.gpu], find_unused_parameters=False
                     )
             else:
                 self._wrapped_model = self._model
@@ -616,6 +616,7 @@ class RunnerBase:
                     collate_fn=collate_fn,
                     drop_last=True if is_train else False,
                 )
+                
                 #loader = PrefetchLoader(loader)
                 loader = IterLoader(loader, use_distributed=self.use_distributed)
                 '''
@@ -674,8 +675,6 @@ class RunnerBase:
             if k in param_grad_dic.keys() and not param_grad_dic[k]:
                 # delete parameters that do not require gradient
                 del state_dict[k]
-            else:
-                print('keys for saving: ', k)
         
         save_obj = {
             "model": state_dict,

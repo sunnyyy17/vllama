@@ -163,12 +163,13 @@ class vllamaIta(Blip2Base):
             for layer in self.Qformer.bert.encoder.layer:
                 for param in layer.parameters():
                     param.requires_grad = False
-            for name, param in self.Qformer_m.named_parameters():
-                param.requires_grad = False ###Fine-tune QFormer with CheXzero vision encoder
-            self.Qformer_m = self.Qformer_m.eval()
-            self.Qformer_m.train = disabled_train
             self.query_tokens.requires_grad = False
             logging.info("freeze Qformer")
+        
+        for name, param in self.Qformer_m.named_parameters():
+                param.requires_grad = False ###Fine-tune QFormer with CheXzero vision encoder
+        self.Qformer_m = self.Qformer_m.eval()
+        self.Qformer_m.train = disabled_train
         
         print('Loading Q-Former Done')
         
@@ -217,7 +218,7 @@ class vllamaIta(Blip2Base):
             )
             self.llama_model = get_peft_model(self.llama_model, loraconfig)
             print("LLAMA MODEL under LORA")
-            #self.llama_model.print_trainable_parameters()
+            self.llama_model.print_trainable_parameters()
         
         else:
             for name, param in self.llama_model.named_parameters():
@@ -267,8 +268,11 @@ class vllamaIta(Blip2Base):
         self.qform_proj_chz = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
         #self.qform_proj_chz_m = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
         self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
-        self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        #self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
         
+        #self.qform_proj_chz_m.requires_grad = False
+        #self.llama_proj_chz_m.requires_grad = False
+
         #print('get device', self.qform_proj_chz.device)
         self.max_txt_len = max_txt_len
         self.end_sym = end_sym
@@ -286,11 +290,11 @@ class vllamaIta(Blip2Base):
         self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
         self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
         
-
+        
         self.model_pairs = [[self.Qformer, self.Qformer_m],
-                            [self.llama_proj_chz, self.llama_proj_chz_m],
-                            #[self.vision_proj, self.vision_proj_m],
+                            #[self.llama_proj_chz, self.llama_proj_chz_m],
                             #[self.qform_proj_chz, self.qform_proj_chz_m],
+                            #[self.vision_proj, self.vision_proj_m],
                             #
                            # [self.text_proj, self.text_proj_m],
                             #[self.z_embed, self.z_embed_m],
@@ -444,21 +448,29 @@ class vllamaIta(Blip2Base):
                 image_embeds = torch.cat((image_embeds, slice_embeds), dim=1)
                 #print('cat image_embeds.shape', image_embeds.shape)
                 
+            
+
             #print("image_embeds.shape", image_embeds.shape)
             image_embeds = image_embeds.to(self.llama_model_device)
+
+            
+            image_embeds = image_embeds.to(self.llama_model_device)
+            print("image_embeds.shape", image_embeds.shape)
+            z_attention_mask = torch.ones(image_embeds[0], image_embeds[1]).to(self.llama_model_device)
+            z_output = self.Zformer(inputs_embeds=image_embeds, attention_mask=z_attention_mask)
             #image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
             #print('image_embeds.device', image_embeds.device)
             #print(self.llama_model_device)
-            image_embeds = image_embeds.to(self.llama_model_device)
-            image_embeds = self.qform_proj_chz(image_embeds)
+            #image_embeds = image_embeds.to(self.llama_model_device)
+            
+            image_embeds = self.qform_proj_chz(z_output)
             
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
             
-
             
             query_output = self.Qformer.bert(
                 query_embeds=query_tokens,
@@ -523,24 +535,26 @@ class vllamaIta(Blip2Base):
                 
             #print("image_embeds.shape", image_embeds.shape)
             image_embeds = image_embeds.to(self.llama_model_device)
-            image_embeds = self.qform_proj_chz(image_embeds)
+            
+            print("image_embeds.shape", image_embeds.shape)
+            z_attention_mask = torch.ones(image_embeds.shape[0], image_embeds.shape[1]).to(self.llama_model_device)
+            z_output = self.Zformer(inputs_embeds=image_embeds, attention_mask=z_attention_mask)
+            
+
+            image_embeds = self.qform_proj_chz(z_output)
             
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
-            query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
+            query_tokens_m = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
             
             query_output_m = self.Qformer_m.bert(
-                query_embeds=query_tokens,
+                query_embeds=query_tokens_m,
                 encoder_hidden_states=image_embeds,
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-            
-            inputs_llama_m = self.llama_proj_chz_m(query_output_m.last_hidden_state)
-            
-            atts_llama_m = torch.ones(inputs_llama_m.size()[:-1], dtype=torch.long).to(self.llama_model_device)
         
-        return inputs_llama_m, atts_llama_m, query_output_m.last_hidden_state
+        return query_output_m.last_hidden_state
         
     def prompt_wrap(self, img_embeds, atts_img, prompt):
         if prompt:
@@ -568,6 +582,8 @@ class vllamaIta(Blip2Base):
         image = samples[0]#.to(self.llama_model_device)
         text = samples[1]#.to(self.llama_model_device)
         modality = samples[2]
+        id_key = samples[3]
+        print(id_key)
         #print('image', image.size())
         bs, ds, c, h, w = image.size()
         #bs, c, h, w = image.size()
@@ -618,12 +634,13 @@ class vllamaIta(Blip2Base):
         txt_feat = F.normalize(txt_embeds, dim=-1)
         
         ###=======MoCo=========###
+        
         with torch.no_grad():
             self._momentum_update()
-            _, _, query_output_m = self.encode_img_m(image, modality)
+            query_output_m = self.encode_img_m(image, modality)
             #img_embeds_m = img_embeds_m.view(bs, ds, num_patch, embed_dim)
             #img_embeds_m = img_embeds_m + self.interpolate_pos_encoding(self.z_embed_m, img_embeds_m)
-
+            
             #img_embeds_m = img_embeds_m.view(bs, -1, embed_dim)
             #print('query_output_m.shape', query_output_m.shape)
             image_feat_m = F.normalize(query_output_m.mean(dim=1), dim=-1)

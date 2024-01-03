@@ -27,7 +27,7 @@ from vllama.common.logger import MetricLogger
 from vllama.models.base_model import BaseModel
 from vllama.models.Qformer import BertConfig, BertLMHeadModel
 from vllama.models.eva_vit import create_eva_vit_g
-from transformers import BertTokenizer
+from transformers import BertTokenizer, BertModel
 
 
 class Blip2Base(BaseModel):
@@ -46,6 +46,17 @@ class Blip2Base(BaseModel):
             return torch.cuda.amp.autocast(dtype=dtype)
         else:
             return contextlib.nullcontext()
+
+    @classmethod
+    def init_Zformer(cls, model_path):
+        if model_path is not None:
+            Zformer = BertModel(BertConfig())
+            Zformer.load_state_dict(torch.load(model_path))
+        else:
+            config = BertConfig()
+            Zformer = BertModel(config)
+            return Zformer
+
 
     @classmethod
     def init_Qformer(cls, num_query_token, vision_width, cross_attention_freq=2):

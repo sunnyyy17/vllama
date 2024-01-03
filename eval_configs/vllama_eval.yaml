@@ -9,8 +9,9 @@ model:
   device_8bit: 0
   prompt_path: "/scratch/slurm-user3/changsun/vllama/prompts/alignment_multi.txt"
   prompt_template: '###Human: {} ###Assistant: '
-  ckpt: '/scratch/slurm-user3/changsun/vllama/vllama/output/brain-tcga-dino-pmcllama-lora-b16/20231227122/checkpoint_2.pth' #'/home/changsun/minigpt4/checkpoints/20231130031/checkpoint_2.pth' #'/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
+  ckpt: '/scratch/slurm-user3/changsun/vllama/vllama/output/brain-tcga-dino-pmcllama-lora/20231231110/checkpoint_15.pth' #'/home/changsun/minigpt4/checkpoints/20231130031/checkpoint_2.pth' #'/home/ubuntu/changsun/3D-LLaMA/minigpt4/output/brain-tcga-dino-pmcllama-lora/20231201053/checkpoint_4.pth' #'/path/to/pretrained/ckpt/'
   vit_path: ['/scratch/slurm-user3/changsun/dino/checkpoint/brain_TCGA_MRI_all_sorted_imgnet_pretrained_nosolar_noflipandjitter1/checkpoint0005.pth', '/scratch/slurm-user3/changsun/dino/checkpoint/rectal_MRI_all_sorted_nosolar_noflipandjitter1/checkpoint0010.pth'] #'/home/changsun/minigpt4/checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/brain_TCGA_MRI_imgnet_pretrained_nosolar_noflipandjitter1_checkpoint0005.pth' #'/data/changsun/vllama_checkpoints/dino_checkpoints/rectal_dino_nosolar_noflipjitter1_checkpoint0010.pth'
+  queue_size: 64
   lora_r: 64
   lora_target_modules: ["q_proj","v_proj"]
   lora_alpha: 16

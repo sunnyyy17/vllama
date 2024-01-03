@@ -1,5 +1,5 @@
 model:
-  arch: vllama_ita
+  arch: vllama_zformer
   model_type: pretrain_vicuna
   vit_model: "vit_small"
   freeze_vit: True
