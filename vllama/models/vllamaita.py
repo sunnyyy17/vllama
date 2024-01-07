@@ -79,6 +79,7 @@ class vllamaIta(Blip2Base):
         alpha=0,
         momentum=0,
         queue_size=500,
+        z_path=None,
         embed_dim=768
     ):
         super().__init__()
@@ -129,6 +130,8 @@ class vllamaIta(Blip2Base):
         
         
         print('Loading VIT Done')
+        
+        ###USING Z-Former
         
         ###USING Q-Former
         print('Loading Q-Former')
@@ -384,6 +387,7 @@ class vllamaIta(Blip2Base):
             except:
                 model_pair[1].data = model_pair[1].data * self.momentum + model_pair[0].data * (1. - self.momentum)
             '''
+    
     def encode_img(self, image, modality):
         #device = self.llama_model_device
         #print('Device', device)
@@ -455,18 +459,8 @@ class vllamaIta(Blip2Base):
 
             
             image_embeds = image_embeds.to(self.llama_model_device)
-            print("image_embeds.shape", image_embeds.shape)
-            z_attention_mask = torch.ones(image_embeds[0], image_embeds[1]).to(self.llama_model_device)
-            z_output = self.Zformer(inputs_embeds=image_embeds, attention_mask=z_attention_mask)
-            #image_embeds = torch.unsqueeze(image_embeds, dim=0)
-            #image = [B, C, H, W] B we want it to be the number of depth slices...
-            #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
-            #print('image_embeds.device', image_embeds.device)
-            #print(self.llama_model_device)
-            #image_embeds = image_embeds.to(self.llama_model_device)
             
-            image_embeds = self.qform_proj_chz(z_output)
-            
+            image_embeds = self.qform_proj_chz(image_embeds)
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
@@ -536,12 +530,7 @@ class vllamaIta(Blip2Base):
             #print("image_embeds.shape", image_embeds.shape)
             image_embeds = image_embeds.to(self.llama_model_device)
             
-            print("image_embeds.shape", image_embeds.shape)
-            z_attention_mask = torch.ones(image_embeds.shape[0], image_embeds.shape[1]).to(self.llama_model_device)
-            z_output = self.Zformer(inputs_embeds=image_embeds, attention_mask=z_attention_mask)
-            
-
-            image_embeds = self.qform_proj_chz(z_output)
+            image_embeds = self.qform_proj_chz(image_embeds)
             
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
@@ -784,6 +773,7 @@ class vllamaIta(Blip2Base):
         alpha = cfg.get("alpha", 0.04)
         momentum = cfg.get("momentum", 0.995)
         queue_size = cfg.get("queue_size", 256)
+        z_path = cfg.get("z_path", None)
         
         model = cls(
             vit_model=vit_model,

@@ -56,8 +56,8 @@ class StoppingCriteriaSub(StoppingCriteria):
 #prompt = '<Img><ImageHere></Img> Could you describe the contents of this image for me?'
 
 ###DECODING STRATEGY
-max_new_tokens=300
-num_beams=10
+max_new_tokens=200
+num_beams=5
 min_length=1
 top_p=0.9
 repetition_penalty=1.0
@@ -81,8 +81,21 @@ input_tokens = tokenizer.decode(
 print(input_tokens)
 '''
 with open(txt_path, 'r') as rfile:
-    report_data = json.load(rfile)
+    full_data = json.load(rfile)
 
+def dictionary_after_key(dictionary, key):
+    keys = list(dictionary.keys())
+    try:
+        index = keys.index(key)
+        print('INDEX: ', index)
+        # Get the part of the dictionary after the specified key
+        return {k: dictionary[k] for k in keys[index+1:]}
+    except ValueError:
+        # Key not found in the dictionary
+        return {}
+
+search_key = '10784600'
+report_data = dictionary_after_key(full_data, search_key)
 
 prompt = "Every clinical report that comes after Q: is summarized as shown after A: . Summarize the last clinical report Q based on the above examples: "
 
@@ -90,15 +103,15 @@ fs_prompt = ["Q: * f/u since 2021-10-20 rectal mri 1> distance of the lowest tum
 "A: The lowest tumor margin is situated approximately 7 cm from the anal verge, and there is no relationship between the tumor and the peritoneum. The tumor is partially encircling in its circumferential location and measures about 1.4 cm longitudinally. It is classified as CT3 in T-staging, indicating a thickness greater than 5mm. There is no involvement of the circumferential resection margin and the anal sphincter remains unaffected. Mesorectal lymph nodes, larger than 8mm with irregular borders, are present but have decreased in size. There are no extramesorectal lymph nodes, and extramural venous invasion (EMVI) is also absent.",
 "Q: - known rectal cancer, middle rectum without perirectal fat infiltration(ct3). : interval decrease in size - a few tiny perirectal and sigmoid mesenteric lymph nodes. ; r/o reactive hyperplasia rather than metastasis. : no significant interval change. - no abnormal fluid collection in significant amount, pelvis. - enlarged prostate.",
 "A: The patient, known to have rectal cancer located in the middle rectum, shows no perirectal fat infiltration, classifying it as CT3. There has been an interval decrease in the size of the tumor. A few tiny perirectal and sigmoid mesenteric lymph nodes are noted; however, these are more suggestive of reactive hyperplasia rather than metastasis, as there has been no significant interval change. There is no abnormal fluid collection in any significant amount within the pelvis. Additionally, the patient has an enlarged prostate.",
-"Q:"]
-
-'''
-a 3.4 cm size mass with calcification between left posterior aspet of the bladder and rectum.",
+"Q: a 3.4 cm size mass with calcification between left posterior aspet of the bladder and rectum.",
 "A: The imaging reveals a mass measuring 3.4 cm with calcification situated between the left posterior aspect of the bladder and the rectum.",
 "Q: f/u for mucinous adenocarcinoma ; decrease in size of heterogeneous enhancing mass (9 x 5cm on coronal image) around the both levator ani muscles, right perirectal and both ischioanal fossa, extending to subcutaneous layer of both posterior perineum - about 2.4cm sized lesion in right side seminal vesicle (mark) ; t2- low si ; d/dx. fibrosis vs. metastasis.",
 "A: Follow-up for mucinous adenocarcinoma shows a decrease in the size of a heterogeneous enhancing mass, previously measuring 9 x 5 cm, located around both levator ani muscles, extending into the right perirectal and both ischioanal fossa, and reaching the subcutaneous layer of both posterior perineum. There is also a 2.4 cm sized lesion in the right seminal vesicle. The mass exhibits low signal intensity on T2-weighted images. Differential diagnosis includes fibrosis versus metastasis.",
 "Q: 5x5x 10cm sized irregular bulky lobulated mucinous mass, perirectal, ischiorectal, perianal area. ; involving the bilateral levator ani muscles -> probably known mucinous adenocarcinoma. no significant lymphadenopathy, abdomen limited evaluation of rectum due to collapsed state.",
 "A: There is a bulky, irregular, lobulated mucinous mass measuring 5x5x10 cm in the perirectal, ischiorectal, and perianal area. It involves the bilateral levator ani muscles and is likely a known mucinous adenocarcinoma. No significant lymphadenopathy is noted, and there is a limited evaluation of the rectum due to its collapsed state.",
+"Q: "]
+
+'''
 "Q: * incomplete study due to limited mr scan range * compared to 2020-8-25 mri - decrease in size of previous noted t2 hyperintensity tubular lesion, posterior part of anus ; 2.4 cm -> 1cm > d/dx mucinous adeno carcinoma (r/o t3 cannot be excluded) vs. benign cystic lesion with significant fibrosis () - no evidence of mesorectal lymph nodes - no evidence of extra mesorectal lymph nodes - multiple variable sized myomas, uterus.",
 "A: Compared to previous MRI, there is a decrease in the size of the previously noted T2 hyperintense tubular lesion in the posterior part of the anus, measuring now 1 cm from an initial 2.4 cm. Differential diagnosis includes mucinous adenocarcinoma versus a benign cystic lesion with significant fibrosis. There is no evidence of mesorectal or extra mesorectal lymph nodes, and multiple variable-sized myomas are noted in the uterus.",
 "Q: nonspecific rectum. - no visible specific focal lesion on this mr. - no evidence of any abnormal lymphadenopathy in significant size, abdomen. - no abnormal fluid collection in significant amount, abdomen.",
@@ -145,7 +158,7 @@ for patient_id, report in report_data.items():
     input_ids = input_tokens.input_ids
     input_ids = input_ids.to(device)
     input_length = input_ids.size(1)
-
+    
     outputs = model.generate(
         input_ids = input_ids,
         max_new_tokens=max_new_tokens,
@@ -153,6 +166,7 @@ for patient_id, report in report_data.items():
         min_length=min_length,
         top_p=top_p,
         repetition_penalty=repetition_penalty,
+        stopping_criteria=stopping_criteria,
         length_penalty=length_penalty,
         temperature=temperature,
     )
@@ -162,7 +176,8 @@ for patient_id, report in report_data.items():
         output_token = output_token[1:]
     if output_token[0] == 1:  # some users find that there is a start token <s> at the beginning. remove it
         output_token = output_token[1:]
-
+    
+    
     output_text = tokenizer.decode(output_token[input_length:], add_special_tokens=False)
     
     #print('output_text: ', output_text)
@@ -170,12 +185,12 @@ for patient_id, report in report_data.items():
     output_text = output_text.split('Assistant:')[-1].strip()
     
     #print()
-    new_report[patient_id] = output_text
+    new_report[patient_id] = [output_text, report]
     
     print('==================================')
     print('Candidate: ', output_text)
     print('GT Report: ', report)
     print('==================================')
     
-    with open('new_mri_report.json', 'w') as file:
-        json.dump(new_report, file, indent=4)
+with open('new_mri_report_after1100.json', 'w') as file:
+    json.dump(new_report, file, indent=4)

@@ -12,6 +12,7 @@ from omegaconf import OmegaConf
 from vllama.common.registry import registry
 from vllama.models.base_model import BaseModel
 from vllama.models.blip2 import Blip2Base
+from vllama.models.vllamaita_zformer import vllamaItaZformer
 from vllama.models.vllamaita_frozen import vllamaItaFrozen 
 from vllama.models.vllamaita import vllamaIta
 from vllama.models.mini_gpt4_orig import vllamaOrig
@@ -26,6 +27,7 @@ __all__ = [
     "BaseModel",
     "Blip2Base",
     "vllamaItaFrozen",
+    "vllamaItaZformer",
     "vllamaIta",
     "vllamaOrig",
     "vllama",

@@ -96,7 +96,7 @@ class StoppingCriteriaSub(StoppingCriteria):
 prompt = '<Img><ImageHere></Img> Could you describe the contents of this rectal MRI image for me?'
 
 max_new_tokens=200
-num_beams=10
+num_beams=5
 min_length=1
 top_p=0.9
 repetition_penalty=1.2
@@ -124,7 +124,7 @@ test_prompt = ["Who are you?", "Tell me about medical imaging", "What is your pu
 with torch.no_grad():
 
     for item in test_prompt:
-
+        
         inputs = tokenizer.encode(item, return_tensors="pt").to(device)
         input_embeds = model.llama_model.model.model.embed_tokens(inputs)
         outputs = model.llama_model.generate(

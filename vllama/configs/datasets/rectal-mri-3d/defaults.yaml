@@ -4,4 +4,4 @@ datasets:
     build_info:
       transform: None
       img_path: /scratch/slurm-user3/changsun/data/rectal_MRI_volume
-      txt_path: /scratch/slurm-user3/changsun/data/rectal_MRI_label/202301_MRI_impression_final.json
+      txt_path: /scratch/slurm-user3/changsun/data/rectal_MRI_label/formatted_rectal_mri_report.json

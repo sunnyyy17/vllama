@@ -330,15 +330,51 @@ class rectalMRIDataset(data.Dataset):
             self.subject_list = self.all_subject[int(len(self.all_subject)*0.95):]  # 6%
         
         self.subject_list = sorted(self.subject_list)
+    
+        ###Faulty Samples###
         self.fug = ['00898791_20220723_1111', '00144977_20220426_1710', '01905101_20210810_1827', '00314908_20210113_1501', '00690419_20211223_1136', '00580054_20220223_1355', '01841626_20210123_1052', '02003454_20220625_1526']
         #print(len(self.subject_list))
-        for idx, item in enumerate(self.subject_list):
+        #text_path = '/scratch/slurm-user3/changsun/data/rectal_MRI_label/202301_MRI_impression_final.json'
+        '''
+        with open(text_path, 'r') as json_reader:
+            mri_label_old = json.load(json_reader)
+        print('Length of orig_dict_keys: ', len(list(mri_label_old.keys())))
+        '''
+        filtered_dict_keys = list(self.mri_label.keys())
+        print('Length of filtered_dict_keys: ', len(filtered_dict_keys))
+        
+        self.subject_list_copy = self.subject_list[:]
+        real_training_data = {}
+        for idx, item in enumerate(self.subject_list_copy):
+            #print('idx then: ', idx)
             if 'SURVEY' in item:
-                _ = self.subject_list.pop(idx)
+                if item in self.subject_list:
+                    self.subject_list.remove(item)
             for elem in self.fug:
                 if elem in item:
-                    _ = self.subject_list.pop(idx)
-    
+                    if item in self.subject_list:
+                        self.subject_list.remove(item)
+                    else:
+                        continue
+            patient_ID = item.split('/')[-2]
+            patient_ID_key = patient_ID[:-11]
+            #print(patient_ID, patient_ID_key)
+            if patient_ID_key not in filtered_dict_keys:
+                #print('self.subject_list: ', self.subject_list[idx])
+                ##print('idx now: ', idx)
+                #print('before length: ', len(self.subject_list))
+                if item in self.subject_list:
+                    self.subject_list.remove(item)
+                ##print('after length: ', len(self.subject_list))
+                #print("POP complete")
+            else:
+                real_training_data[patient_ID_key] = self.mri_label[patient_ID_key]
+        
+        print('Length of real training data dict: ', len(list(real_training_data.keys())))
+        with open('formatted_rectal_mri_report_real.json', 'w') as jwriter:
+            json.dump(real_training_data, jwriter, indent=4)
+        
+        #print('self.subject_list: ', self.subject_list)
         print(len(self.subject_list))
     
     def __len__(self):

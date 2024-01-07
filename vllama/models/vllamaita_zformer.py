@@ -42,8 +42,8 @@ def forward_hook(module, input, output):
     module.used = True
 
 
-@registry.register_model("vllama_ita")
-class vllamaIta(Blip2Base):
+@registry.register_model("vllamaita_zformer")
+class vllamaItaZformer(Blip2Base):
     """
     BLIP2 GPT-LLAMA model.
     """
@@ -79,8 +79,8 @@ class vllamaIta(Blip2Base):
         alpha=0,
         momentum=0,
         queue_size=500,
-        embed_dim=768,
-        z_path=None
+        z_path=None,
+        embed_dim=768
     ):
         super().__init__()
 
@@ -130,13 +130,19 @@ class vllamaIta(Blip2Base):
         
         
         print('Loading VIT Done')
-
-        ###USING Z-Former
-        self.Zformer = self.init_Zformer(z_path)
         
+        ###USING Z-Former
+        self.z_path = z_path
+        self.Zformer = self.init_Zformer(self.z_path)
+        
+        ###
+        self.Zformer.pooler.dense.bias.requires_grad = False
+        self.Zformer.pooler.dense.weight.requires_grad = False 
+        self.Zformer.embeddings.word_embeddings.weight.requires_grad = False
+
         ###USING Q-Former
         print('Loading Q-Former')
-        print('visual_encoder.num_features', self.visual_encoder.num_features)
+        #print('visual_encoder.num_features', self.visual_encoder.num_features)
         
         self.Qformer, self.query_tokens = self.init_Qformer(num_query_token, 1408)
         self.Qformer_m, _ = self.init_Qformer(num_query_token, 1408)
@@ -255,6 +261,20 @@ class vllamaIta(Blip2Base):
             self.Qformer.config.hidden_size, self.llama_model.config.hidden_size
         )
         '''
+        #print('1-0', self.llama_model_device)
+        ###Dimension Matching? Distribution Matching? ###REFER to Cross-Modal Finetuning
+        #print('config.hidden_size', self.llama_model.config.hidden_size)
+        #.
+        #qform_proj = self.visual_encoder.num_features
+        #qform_out = self.Qformer.bert.encoder.layer.0.crossattention.self.value.weight.shape[1]
+        #self.vision_proj = nn.Linear(vision_width, embed_dim)
+        #self.vision_proj_m = nn.Linear(vision_width, embed_dim)
+        #self.text_proj = nn.Linear(text_width, embed_dim)
+        #self.text_proj_m = nn.Linear(text_width, embed_dim)
+        #self.qform_proj_chz = nn.Linear(768, 1408).to(self.llama_model_device)
+        #self.qform_proj_chz_m = nn.Linear(768, 1408).to(self.llama_model_device)
+        #self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
+        #self.llama_proj_chz_m = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
         self.qform_proj_chz = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
         #self.qform_proj_chz_m = nn.Linear(self.visual_encoder.num_features, 1408).to(self.llama_model_device)
         self.llama_proj_chz = nn.Linear(768, self.llama_model.config.hidden_size).to(self.llama_model_device)
@@ -439,19 +459,26 @@ class vllamaIta(Blip2Base):
                 #print('cat image_embeds.shape', image_embeds.shape)
                 
             
-            print("image_embeds.shape", image_embeds.shape)
+
+            #print("image_embeds.shape", image_embeds.shape)
             image_embeds = image_embeds.to(self.llama_model_device)
-            z_attention_mask = torch.ones(image_embeds[0], image_embeds[1])
+
+            
+            image_embeds = image_embeds.to(self.llama_model_device)
+            #print("image_embeds.shape", image_embeds.shape)
+            z_attention_mask = torch.ones(image_embeds.shape[0], image_embeds.shape[1]).to(self.llama_model_device)
             z_output = self.Zformer(inputs_embeds=image_embeds, attention_mask=z_attention_mask)
+            cls_output = z_output.last_hidden_state[:,:,:]
+            
             #image_embeds = torch.unsqueeze(image_embeds, dim=0)
             #image = [B, C, H, W] B we want it to be the number of depth slices...
             #For sorted images, ct.h5 -> [ 24, 58, 42, ...]
             #print('image_embeds.device', image_embeds.device)
             #print(self.llama_model_device)
+            #image_embeds = image_embeds.to(self.llama_model_device)
             
-            ###Without Zformer
-            #image_embeds = self.qform_proj_chz(image_embeds)
-            image_embeds = self.qform_proj_chz(z_output)
+            image_embeds = self.qform_proj_chz(cls_output)
+            #print('image_embeds after projection', image_embeds.shape)
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
             query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
@@ -466,7 +493,19 @@ class vllamaIta(Blip2Base):
             inputs_llama = self.llama_proj_chz(query_output.last_hidden_state)
             
             atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(self.llama_model_device)
-        
+           
+        ###FOR VISION ENCODER + FFN/LINEAR LAYER Only
+        '''
+        #with self.maybe_autocast():
+        print('image.shape', image.shape)
+        image_embeds = self.visual_encoder(image).to(device)
+        image_cls_tokens = (image_embeds-image_embeds.min())/(image_embeds.max()-image_embeds.min()) #image_cls_tokens = image_embeds[:,-1,:]
+        print('image_cls_tokens.shape', image_cls_tokens.shape)
+        inputs_llama = self.llama_proj_chz(image_cls_tokens).to(device)
+        atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(device)
+        inputs_llama = inputs_llama.unsqueeze(dim=1)
+        atts_llama = atts_llama.unsqueeze(dim=1)
+        '''
         return inputs_llama, atts_llama, query_output.last_hidden_state
     
     def encode_img_m(self, image, modality):
@@ -508,7 +547,13 @@ class vllamaIta(Blip2Base):
                 
             #print("image_embeds.shape", image_embeds.shape)
             image_embeds = image_embeds.to(self.llama_model_device)
-            image_embeds = self.qform_proj_chz(image_embeds)
+            
+            #print("image_embeds.shape", image_embeds.shape)
+            z_attention_mask = torch.ones(image_embeds.shape[0], image_embeds.shape[1]).to(self.llama_model_device)
+            z_output = self.Zformer(inputs_embeds=image_embeds, attention_mask=z_attention_mask)
+            cls_output = z_output.last_hidden_state[:,:,:]
+
+            image_embeds = self.qform_proj_chz(cls_output)
             
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(self.llama_model_device)
             
@@ -751,6 +796,7 @@ class vllamaIta(Blip2Base):
         alpha = cfg.get("alpha", 0.04)
         momentum = cfg.get("momentum", 0.995)
         queue_size = cfg.get("queue_size", 256)
+        z_path = cfg.get("z_path", None)
         
         model = cls(
             vit_model=vit_model,

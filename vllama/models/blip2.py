@@ -50,11 +50,10 @@ class Blip2Base(BaseModel):
     @classmethod
     def init_Zformer(cls, model_path):
         if model_path is not None:
-            Zformer = BertModel(BertConfig())
+            Zformer = BertModel(BertConfig(hidden_size=384))
             Zformer.load_state_dict(torch.load(model_path))
         else:
-            config = BertConfig()
-            Zformer = BertModel(config)
+            Zformer = BertModel(BertConfig(hidden_size=384))
             return Zformer
 
 
